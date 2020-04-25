@@ -1,0 +1,12 @@
+<launch>
+
+<!-- arguments are set via terminal and can have a default value -->
+<arg name="robot_name" default="thymio10" />
+
+<!-- nodes are exectued -->
+<node pkg="thymio_course_skeleton" name="thymio_controller" type="thymio_controller.py" output="screen">
+    <!-- paramters must be set in the launchfile -->
+    <param name="robot_name" value="/$(arg robot_name)" />
+</node>
+
+</launch>
