@@ -7,6 +7,14 @@ from sensor_msgs.msg import Range
 from geometry_msgs.msg import Pose, Twist, Vector3
 from tf.transformations import euler_from_quaternion
 import numpy as np
+# ROS Image message
+from sensor_msgs.msg import Image
+# ROS Image message -> OpenCV2 image converter
+from cv_bridge import CvBridge, CvBridgeError
+# OpenCV2 for saving an image
+import cv2
+import os.path
+import time
 
 
 class ThymioController:
@@ -24,11 +32,16 @@ class ThymioController:
         self.sign = 2
         self.min_wall_distance = 0.04
         self.status = ThymioController.FORWARD
+        self.start = time.time()
+        # Instantiate CvBridge
+        self.bridge = CvBridge()
+        self.image_count = 0
+        self.sensors = []
         # initialize the node
         rospy.init_node(
             'thymio_controller' + str(ThymioController.count)  # name of the node
         )
-        print(str(ThymioController.count))
+
         ThymioController.count = ThymioController.count + 1
         self.name = rospy.get_param('~robot_name')
 
@@ -43,11 +56,11 @@ class ThymioController:
         )
 
         # create pose subscriber
-        self.pose_subscriber = rospy.Subscriber(
-            self.name + '/odom',  # name of the topic
-            Odometry,  # message type
-            self.log_odometry  # function that hanldes incoming messages
-        )
+        # self.pose_subscriber = rospy.Subscriber(
+        #     self.name + '/odom',  # name of the topic
+        #     Odometry,  # message type
+        #     self.log_odometry  # function that hanldes incoming messages
+        # )
 
         self.prox_center_sub = rospy.Subscriber(
             self.name + '/proximity/left',  # name of the topic
@@ -84,6 +97,12 @@ class ThymioController:
             "right"
         )
 
+        self.image = rospy.Subscriber(
+            self.name + '/camera/image_raw/compressed',  # name of the topic
+            Image,  # message type
+            self.image_callback
+        )
+
         # tell ros to call stop when the program is terminated
         rospy.on_shutdown(self.stop)
 
@@ -117,6 +136,26 @@ class ThymioController:
         )
 
         return result
+
+    def image_callback(self, msg):
+
+        milsec = time.time() - self.start
+
+        if milsec > 1:
+            # Convert your ROS Image message to OpenCV2
+            cv2_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+
+            # Save your OpenCV2 image as a jpeg
+            cv2.imwrite("data/{}.jpeg".format(self.image_count), cv2_img)
+            if os.path.isfile('data/sensor_data.npy'):
+                data = np.load("data/sensor_data.npy")
+                data = np.append(data, self.ranges)
+            else:
+                data = self.ranges
+
+            np.save("data/sensor_data.npy", data)
+            self.start = time.time()
+            self.image_count += 1
 
     def sense_prox(self, data, topic):
         """Updates robot pose and velocities, and logs pose to console."""
@@ -214,7 +253,7 @@ class ThymioController:
                 angle = np.deg2rad(90 + np.random.randint(5, 45))
                 rand_dir = 1 if np.random.random() < 0.5 else -1
                 while current_angle < angle:
-                    self.velocity_publisher.publish(self.get_control(0, self.angular_speed*rand_dir))
+                    self.velocity_publisher.publish(self.get_control(0, self.angular_speed * rand_dir))
                     t1 = rospy.Time.now().to_sec()
                     current_angle = self.angular_speed * (t1 - t0)
 
