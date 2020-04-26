@@ -12,8 +12,7 @@ import numpy as np
 class ThymioController:
     FORWARD = 1
     ROTATING = 2
-    ADJUSTING = 3
-    BACKWARD = 4
+    ROTATING_ORTHOGONAL = 3
     DONE = 5
     count = 0
 
@@ -123,9 +122,14 @@ class ThymioController:
         """Updates robot pose and velocities, and logs pose to console."""
         sensor_range = data.range
         self.ranges[topic] = sensor_range
-        if sensor_range < 0.05:
+        if sensor_range < 0.2:
             if self.status == ThymioController.FORWARD:
-                self.status = ThymioController.ROTATING
+                dif = self.ranges["left"] - self.ranges["right"]
+
+                if np.isclose(0, dif, atol=0.005):
+                    self.status = ThymioController.ROTATING_ORTHOGONAL
+                else:
+                    self.status = ThymioController.ROTATING
                 velocity = self.get_control(0, 0)
                 self.velocity_publisher.publish(velocity)
 
@@ -182,13 +186,10 @@ class ThymioController:
                 dif = self.ranges["left"] - self.ranges["right"]
 
                 if np.isclose(0, dif, atol=0.005):
-                    if self.sign == 2:
-                        # no specific direction needed select 1
-                        self.sign = 1
                     self.velocity_publisher.publish(self.get_control(0, 0))
                     t0 = rospy.Time.now().to_sec()
                     current_angle = 0
-                    angle = np.deg2rad(np.random.randint(10, 170))
+                    angle = np.deg2rad(np.random.randint(5, 45))
 
                     while current_angle < angle:
                         self.velocity_publisher.publish(self.get_control(0, self.angular_speed * self.sign))
@@ -201,7 +202,23 @@ class ThymioController:
                     if self.sign == 2:
                         self.sign = np.sign(dif)
                     # publish velocity message
-                    self.velocity_publisher.publish(self.get_angular_velocity(dif, -1))
+
+                    self.velocity_publisher.publish(self.get_control(0, self.angular_speed * self.sign))
+
+            # When Thymio is orthogonal to an object
+            elif self.status == ThymioController.ROTATING_ORTHOGONAL:
+
+                self.velocity_publisher.publish(self.get_control(0, 0))
+                t0 = rospy.Time.now().to_sec()
+                current_angle = 0
+                angle = np.deg2rad(90 + np.random.randint(5, 45))
+                rand_dir = 1 if np.random.random() < 0.5 else -1
+                while current_angle < angle:
+                    self.velocity_publisher.publish(self.get_control(0, self.angular_speed*rand_dir))
+                    t1 = rospy.Time.now().to_sec()
+                    current_angle = self.angular_speed * (t1 - t0)
+
+                self.status = ThymioController.FORWARD
 
             elif self.status == ThymioController.DONE:
                 self.velocity_publisher.publish(self.get_control(0, self.angular_speed))

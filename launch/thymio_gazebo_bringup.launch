@@ -17,7 +17,7 @@
 
   <include file="$(find thymioid_description)/launch/gazebo_bringup.launch">
     <arg name="name" value="$(arg name)"/>
-    <arg name="pose" value="-x 4 -y 0 -z 0"/>
+    <arg name="pose" value="-x 0 -y 0 -z 0"/>
     <arg name="odom_max_rate" default="20.0"/>
 
     <arg name="publish_ground_truth" default="true"/>
@@ -28,9 +28,9 @@
     <arg name="right_wheel_friction" value="1"/>
 
     <arg name="camera_is_fixed" default="false"/>
-    <arg name="camera_pitch" default="0.2618"/>
+    <arg name="camera_pitch" default="0"/>
 
-    <arg name="proximity_max_range" default="1"/>
+    <arg name="proximity_max_range" default="2"/>
     <arg name="proximity_resolution" default="0.005"/>
     <arg name="proximity_fov" default="0.3"/>
 
