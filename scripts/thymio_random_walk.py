@@ -98,7 +98,7 @@ class ThymioController:
         )
 
         self.image = rospy.Subscriber(
-            self.name + '/camera/image_raw/compressed',  # name of the topic
+            self.name + '/camera/image_raw',  # name of the topic
             Image,  # message type
             self.image_callback
         )
@@ -146,7 +146,7 @@ class ThymioController:
             cv2_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
 
             # Save your OpenCV2 image as a jpeg
-            cv2.imwrite("data/{}.jpeg".format(self.image_count), cv2_img)
+            cv2.imwrite("data/imgs/{}.jpeg".format(self.image_count), cv2_img)
             if os.path.isfile('data/sensor_data.npy'):
                 data = np.load("data/sensor_data.npy")
                 data = np.append(data, self.ranges)
