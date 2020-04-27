@@ -103,6 +103,20 @@ class ThymioController:
             self.image_callback
         )
 
+        self.prox_down_left = rospy.Subscriber(
+        	self.name + '/ground/left',
+        	Range,
+        	self.sense_ground,
+        	"left"
+        )
+
+        self.prox_down_left = rospy.Subscriber(
+        	self.name + '/ground/right',
+        	Range,
+        	self.sense_ground,
+        	"right"
+        )
+
         # tell ros to call stop when the program is terminated
         rospy.on_shutdown(self.stop)
 
@@ -142,20 +156,20 @@ class ThymioController:
         milsec = time.time() - self.start
 
         if milsec > 1:
-            # Convert your ROS Image message to OpenCV2
-            cv2_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+	        # Convert your ROS Image message to OpenCV2
+	    	cv2_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
 
-            # Save your OpenCV2 image as a jpeg
-            cv2.imwrite("data/{}.jpeg".format(self.image_count), cv2_img)
-            if os.path.isfile('data/sensor_data.npy'):
-                data = np.load("data/sensor_data.npy")
-                data = np.append(data, self.ranges)
-            else:
-                data = self.ranges
+	        # Save your OpenCV2 image as a jpeg
+	       	cv2.imwrite("data/{}.jpeg".format(self.image_count), cv2_img)
+	        if os.path.isfile('data/sensor_data.npy'):
+	            data = np.load("data/sensor_data.npy")
+	            data = np.append(data, self.ranges)
+	        else:
+	            data = self.ranges
 
-            np.save("data/sensor_data.npy", data)
-            self.start = time.time()
-            self.image_count += 1
+	        np.save("data/sensor_data.npy", data)
+	        self.start = time.time()
+	        self.image_count += 1
 
     def sense_prox(self, data, topic):
         """Updates robot pose and velocities, and logs pose to console."""
@@ -171,6 +185,24 @@ class ThymioController:
                     self.status = ThymioController.ROTATING
                 velocity = self.get_control(0, 0)
                 self.velocity_publisher.publish(velocity)
+
+    def sense_ground(self, data, topic):
+    	sensor_range = data.range
+    	self.ranges[topic] = sensor_range
+    	# implement a moving average compared to a hard thershold?
+    	if (sensor_range > 0.1) and (self.status == ThymioController.FORWARD):
+    		self.status == ROTATING_ORTHOGONAL
+    		velocity = self.get_control(0, 0)
+	        self.velocity_publisher.publish(velocity)
+
+	        # store the pitfall flag with the identifier number of the previous image
+	        if os.path.isfile('data/pitfall_flags.npy'):
+	            flags = np.load("data/pitfall_flags.npy")
+	            flags = np.append(flags, self.image_count - 1)
+	        else:
+	            flags = self.image_count - 1
+
+	        np.save("data/pitfall_flags.npy", flags)
 
     def log_odometry(self, data):
 
