@@ -55,13 +55,6 @@ class ThymioController:
             queue_size=10  # queue size
         )
 
-        # create pose subscriber
-        # self.pose_subscriber = rospy.Subscriber(
-        #     self.name + '/odom',  # name of the topic
-        #     Odometry,  # message type
-        #     self.log_odometry  # function that hanldes incoming messages
-        # )
-
         self.prox_center_sub = rospy.Subscriber(
             self.name + '/proximity/left',  # name of the topic
             Range,  # message type
@@ -115,28 +108,6 @@ class ThymioController:
         # set node update frequency in Hz
         self.rate = rospy.Rate(10)
 
-    def human_readable_pose2d(self, pose):
-        """Converts pose message to a human readable pose tuple."""
-
-        # create a quaternion from the pose
-        quaternion = (
-            pose.orientation.x,
-            pose.orientation.y,
-            pose.orientation.z,
-            pose.orientation.w
-        )
-
-        # convert quaternion rotation to euler rotation
-        roll, pitch, yaw = euler_from_quaternion(quaternion)
-
-        result = (
-            pose.position.x,  # x position
-            pose.position.y,  # y position
-            yaw  # theta angle
-        )
-
-        return result
-
     def image_callback(self, msg):
 
         milsec = time.time() - self.start
@@ -172,20 +143,6 @@ class ThymioController:
                 velocity = self.get_control(0, 0)
                 self.velocity_publisher.publish(velocity)
 
-    def log_odometry(self, data):
-
-        """Updates robot pose and velocities, and logs pose to console."""
-        self.pose = data.pose.pose
-        self.velocity = data.twist.twist
-
-        printable_pose = self.human_readable_pose2d(self.pose)
-
-        # log robot's pose
-        rospy.loginfo_throttle(
-            period=1,  # log every 10 seconds
-            msg=self.name + ' (%.3f, %.3f, %.3f) ' % printable_pose  # message
-        )
-
     def get_control(self, vel, ang):
         return Twist(
             linear=Vector3(
@@ -199,17 +156,6 @@ class ThymioController:
                 ang
             )
         )
-
-    def get_angular_velocity(self, dif, status):
-        if np.isclose(0, dif, atol=0.001):
-            velocity = self.get_control(0, 0)
-            self.status = status
-        elif dif > 0:
-            velocity = self.get_control(0, self.angular_speed)
-        else:
-            velocity = self.get_control(0, -self.angular_speed)
-
-        return velocity
 
     def run(self):
         """Controls the Thymio."""

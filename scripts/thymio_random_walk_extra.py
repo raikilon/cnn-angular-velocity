@@ -98,7 +98,7 @@ class ThymioController:
         )
 
         self.image = rospy.Subscriber(
-            self.name + '/camera/image_raw/compressed',  # name of the topic
+            self.name + '/camera/image_raw',  # name of the topic
             Image,  # message type
             self.image_callback
         )
@@ -191,7 +191,7 @@ class ThymioController:
     	self.ranges[topic] = sensor_range
     	# implement a moving average compared to a hard thershold?
     	if (sensor_range > 0.1) and (self.status == ThymioController.FORWARD):
-    		self.status == ROTATING_ORTHOGONAL
+    		self.status == ThymioController.ROTATING_ORTHOGONAL
     		velocity = self.get_control(0, 0)
 	        self.velocity_publisher.publish(velocity)
 
