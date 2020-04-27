@@ -12,9 +12,9 @@ from torch.utils.data import random_split
 from torch.utils.data import DataLoader
 import numpy as np
 import wandb
-
-from .cnn_regressor import CNNRegressor
-from .obstacle_position_dataset import ObstaclePositionDataset
+import os
+from cnn_regressor import CNNRegressor
+from obstacle_position_dataset import ObstaclePositionDataset
 
 parser = argparse.ArgumentParser(description='PyTorch Rotation Training')
 parser.add_argument('data', metavar='PATH', help='path to dataset')
@@ -24,7 +24,7 @@ parser.add_argument('--batch_size', default=32, type=int, help='mini-batch size 
 parser.add_argument('--patience', default='50', type=int, help='patience of early stopping (default 50)')
 parser.add_argument('--feature_extraction', action='store_true', help='Do feature extraction (train only classifier)')
 parser.add_argument('--optimizer', default='SGD', help='model optimizer (default: SGD)')
-parser.add_argument('--learning_rate', default=0.01, type=float, help='initial learning rate (default: 0.01)')
+parser.add_argument('--learning_rate', default=0.001, type=float, help='initial learning rate (default: 0.01)')
 parser.add_argument('--weight_decay', default=1e-4, type=float, help='weight decay (default: 1e-4)')
 
 
@@ -54,9 +54,9 @@ def main():
                             weight_decay=args.weight_decay)
     else:
         optimizer = SGD(filter(lambda p: p.requires_grad, model.parameters()), args.learning_rate,
-                        momentum=args.momentum, weight_decay=args.weight_decay)
+                        weight_decay=args.weight_decay)
 
-    dataset = ObstaclePositionDataset("dir", "tar")
+    dataset = ObstaclePositionDataset(args.data)
 
     test_size = int((len(dataset) / 100) * 10)
     train_set, val_set, test_set = random_split(dataset, [len(dataset) - (test_size * 2), test_size, test_size])
@@ -65,12 +65,9 @@ def main():
     # train_set, val_set = random_split(dataset, [len(train_set) - val_size, val_size])
 
     # Final test set will be used only on the final architecture
-    train_loader = DataLoader(train_set, batch_size=4,
-                              shuffle=True, num_workers=4)
-    val_loader = DataLoader(val_set, batch_size=4,
-                            shuffle=True, num_workers=4)
-    test_loader = DataLoader(train_set, batch_size=4,
-                             shuffle=True, num_workers=4)
+    train_loader = DataLoader(train_set, batch_size=32, shuffle=True, num_workers=4, pin_memory=True, drop_last=True)
+    val_loader = DataLoader(val_set, batch_size=32, shuffle=True, num_workers=4, pin_memory=True, drop_last=True)
+    test_loader = DataLoader(test_set, batch_size=32, shuffle=True, num_workers=4, pin_memory=True, drop_last=True)
 
     # Track model in wandb
     # wandb.init(project="RoboticsProject", config=args)
@@ -101,18 +98,20 @@ def train(model, criterion, optimizer, train_loader, val_loader, args):
         # switch to train mode
         model.train()
 
-        for batch_idx, (input_val, target_val) in enumerate(train_loader):
+        for input_val, target_val in train_loader:
             target_val = target_val.to(device=args.device, non_blocking=True)
             input_val = input_val.to(device=args.device, non_blocking=True)
 
-            loss = criterion(input_val, target_val)
+            output = model(input_val)
+
+            loss = criterion(output, target_val)
 
             # compute gradient and do optimizer step
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-            losses.append(loss.detach())
+            losses.append(loss.detach().cpu().numpy())
             # TODO define better way to evaluate model ? some kind of accuracy?
             del loss
             torch.cuda.empty_cache()
@@ -150,7 +149,7 @@ def validate(test_loader, model, criterion, args):
             input_val = input_val.to(device=args.device, non_blocking=True)
 
             loss = criterion(input_val, target_val)
-            losses.append(loss.detach())
+            losses.append(loss.detach().cpu().numpy())
             del loss
             torch.cuda.empty_cache()
 
