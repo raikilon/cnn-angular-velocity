@@ -70,9 +70,9 @@ def main():
     test_loader = DataLoader(test_set, batch_size=32, shuffle=True, num_workers=4, pin_memory=True, drop_last=True)
 
     # Track model in wandb
-    # wandb.init(project="RoboticsProject", config=args)
+    wandb.init(project="RoboticsProject", config=args)
 
-    # wandb.watch(model)
+    wandb.watch(model)
 
     train(model, criterion, optimizer, train_loader, val_loader, args)
 
@@ -82,7 +82,7 @@ def main():
     torch.cuda.empty_cache()
 
     test_loss = validate(test_loader, model, criterion, args)
-    # wandb.run.summary["Test loss"] = test_loss
+    wandb.run.summary["Test loss"] = test_loss
 
 
 def train(model, criterion, optimizer, train_loader, val_loader, args):
@@ -118,11 +118,11 @@ def train(model, criterion, optimizer, train_loader, val_loader, args):
 
         val_loss = validate(val_loader, model, criterion, args)
 
-        # wandb.log({"Loss": np.mean(losses)}, step=epoch)
-        # wandb.log({"Val loss": val_loss}, step=epoch)
+        wandb.log({"Loss": np.mean(losses)}, step=epoch)
+        wandb.log({"Val loss": val_loss}, step=epoch)
 
         #  Save best model and best prediction
-        if val_loss > best_loss:
+        if val_loss < best_loss:
             best_loss = val_loss
             torch.save({
                 'state_dict': model.state_dict()
@@ -132,9 +132,8 @@ def train(model, criterion, optimizer, train_loader, val_loader, args):
             # Early stopping
             epoch_no_improve += 1
             if epoch_no_improve == args.patience:
-                # wandb.run.summary["Best val loss"] = best_loss
-                # wandb.run.summary["Best val loss epoch"] = epoch - args.patience
-
+                wandb.run.summary["Best val loss"] = best_loss
+                wandb.run.summary["Best val loss epoch"] = epoch - args.patience
                 return
 
 
@@ -147,8 +146,8 @@ def validate(test_loader, model, criterion, args):
         for batch_idx, (input_val, target_val) in enumerate(test_loader):
             target_val = target_val.to(device=args.device, non_blocking=True)
             input_val = input_val.to(device=args.device, non_blocking=True)
-
-            loss = criterion(input_val, target_val)
+            output = model(input_val)
+            loss = criterion(output, target_val)
             losses.append(loss.detach().cpu().numpy())
             del loss
             torch.cuda.empty_cache()
