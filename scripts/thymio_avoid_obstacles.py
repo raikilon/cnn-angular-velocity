@@ -17,7 +17,7 @@ import torch.nn.functional
 import torch.optim
 import torch.utils.data
 from torchvision import transforms
-
+import PIL.Image as PILImage
 from model.cnn_regressor import CNNRegressor
 
 
@@ -42,7 +42,7 @@ class ThymioController:
 
         # Init CNN model
         self.model = CNNRegressor(2, False)
-        checkpoint = torch.load("best_model.pth.tar")
+        checkpoint = torch.load("best_model.pth.tar", map_location='cpu')
         self.model.load_state_dict(checkpoint['state_dict'])
         self.model.eval()
         del checkpoint
@@ -99,11 +99,11 @@ class ThymioController:
             # Convert your ROS Image message to OpenCV2
             cv2_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
             img = cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB)
-            im_pil = Image.fromarray(img)
+            im_pil = PILImage.fromarray(img)
             image = self.transform(im_pil)
             with torch.no_grad():
-                output = self.model(image)
-                output = output.detach().cpu().numpy()
+                output = self.model(image.unsqueeze_(0))
+                output = output.detach().cpu().numpy()[0]
                 if output[0] > 0.1:
                     self.status = ThymioController.ROTATING
                     self.sign = -1
@@ -139,13 +139,12 @@ class ThymioController:
 
                 # publish velocity message
                 self.velocity_publisher.publish(velocity)
+
+                t0 = rospy.Time.now().to_sec()
             elif self.status == ThymioController.ROTATING:
 
-                self.velocity_publisher.publish(self.get_control(0, 0))
-                t0 = rospy.Time.now().to_sec()
-
                 if self.current_angle < self.angle:
-                    self.velocity_publisher.publish(self.get_control(0, self.angular_speed * self.sign))
+                    self.velocity_publisher.publish(self.get_control(self.speed, self.angular_speed * self.sign))
                     t1 = rospy.Time.now().to_sec()
                     self.current_angle = self.angular_speed * (t1 - t0)
                 else:
