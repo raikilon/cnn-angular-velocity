@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 import numpy as np
 import wandb
 import os
-import datetime
+from datetime import datetime
 from cnn_regressor import CNNRegressor
 from obstacle_position_dataset import ObstaclePositionDataset
 
