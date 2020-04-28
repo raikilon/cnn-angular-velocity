@@ -190,7 +190,7 @@ class ThymioController:
     	sensor_range = data.range
     	self.ranges[topic] = sensor_range
     	# implement a moving average compared to a hard thershold?
-    	if (sensor_range > 0.1) and (self.status == ThymioController.FORWARD):
+    	if (sensor_range > 0.15) and (self.status == ThymioController.FORWARD):
     		self.status == ThymioController.ROTATING_ORTHOGONAL
     		velocity = self.get_control(0, 0)
 	        self.velocity_publisher.publish(velocity)
