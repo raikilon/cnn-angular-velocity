@@ -17,7 +17,7 @@
 
   <include file="$(find thymioid_description)/launch/gazebo_bringup.launch">
     <arg name="name" value="$(arg name)"/>
-    <arg name="pose" value="-x 1 -y 1 -z 0"/>
+    <arg name="pose" value="-x 1 -y -3 -z 0"/>
     <arg name="odom_max_rate" default="20.0"/>
 
     <arg name="publish_ground_truth" default="true"/>

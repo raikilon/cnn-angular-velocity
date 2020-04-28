@@ -21,6 +21,7 @@ class ThymioController:
     FORWARD = 1
     ROTATING = 2
     ROTATING_ORTHOGONAL = 3
+    BACKING_UP = 4
     DONE = 5
     count = 0
 
@@ -28,7 +29,7 @@ class ThymioController:
         """Initialization."""
         self.ranges = {}
         self.angular_speed = 0.2
-        self.speed = 0.2
+        self.speed = 0.05 #originally was 0.2
         self.sign = 2
         self.min_wall_distance = 0.04
         self.status = ThymioController.FORWARD
@@ -191,16 +192,17 @@ class ThymioController:
     	self.ranges[topic] = sensor_range
     	# implement a moving average compared to a hard thershold?
     	if (sensor_range > 0.15) and (self.status == ThymioController.FORWARD):
-    		self.status == ThymioController.ROTATING_ORTHOGONAL
-    		velocity = self.get_control(0, 0)
-	        self.velocity_publisher.publish(velocity)
+            
+            self.status = ThymioController.BACKING_UP
+            velocity = self.get_control(0, 0)
+            self.velocity_publisher.publish(velocity)
 
-	        # store the pitfall flag with the identifier number of the previous image
-	        if os.path.isfile('data/pitfall_flags.npy'):
-	            flags = np.load("data/pitfall_flags.npy")
-	            flags = np.append(flags, self.image_count - 1)
-	        else:
-	            flags = self.image_count - 1
+	       # store the pitfall flag with the identifier number of the previous image
+            if os.path.isfile('data/pitfall_flags.npy'):
+                flags = np.load("data/pitfall_flags.npy", allow_pickle=True)
+                flags = np.append(flags, self.image_count - 1)
+            else:
+                flags = self.image_count - 1
 
 	        np.save("data/pitfall_flags.npy", flags)
 
@@ -290,6 +292,18 @@ class ThymioController:
                     current_angle = self.angular_speed * (t1 - t0)
 
                 self.status = ThymioController.FORWARD
+
+            elif self.status == ThymioController.BACKING_UP:
+                self.velocity_publisher.publish(self.get_control(0, 0))
+                t0 = rospy.Time.now().to_sec()
+                current_distance = 0
+                distance = 0.1
+                backup_speed = 0.1
+                while current_distance < distance:
+                    self.velocity_publisher.publish(self.get_control(-backup_speed, 0))
+                    t1 = rospy.Time.now().to_sec()
+                    current_distance = backup_speed * (t1 - t0)
+                self.status = ThymioController.ROTATING_ORTHOGONAL
 
             elif self.status == ThymioController.DONE:
                 self.velocity_publisher.publish(self.get_control(0, self.angular_speed))
