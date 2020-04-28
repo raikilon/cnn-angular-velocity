@@ -1,19 +1,17 @@
-# Assignment 2
+# Robotics Final Project
 #### Noli Manzoni, Micheal Denzler
-Add the `thymio_course_skeleton` package to your `your_catkin_workspace`
+Add the `final_project` package to your `your_catkin_workspace`
 
-## Compulsory part
-To run the **compulsory** part of the assignment, first bring up the gazebo:
+## Get training data
+To get the training data please launch Gazebo with the wanted world
 ```
-roslaunch thymio_course_skeleton thymio_gazebo_bringup.launch name:=thymio10 world:=wall
+roslaunch final_project thymio_gazebo_bringup.launch name:=thymio10 world:=simple
 ```
-then execute the `compulsory.launch` file as follow:
+and then execute the `random_walk.launch` file as follow:
 ```
-roslaunch thymio_course_skeleton compulsory.launch
+roslaunch final_project random_walk.launch
 ```
-This command will execute the third part of the compulsory assignment where the Thymio will go towards the wall and once it hit it, it will rotate to be facing opposite to the wall and then it will go to a point two meters from the wall. 
-**Remarks:** In this case, the Thymio will not face the wall and then rotate to be facing opposite to the wall, but it will, in the sake, start rotating away from the wall directly. To see the implementation of the Thymio facing the wall, see implementation of **part 2**.
-
+This script will populate the folder `data/imgs` with images from the Thymio (one per second) and once the program is closed with `ctrl+c` it also saves the target data in `sensor_data.npy`
 ### Run different parts separately
 
 To run the **part 1** (drawing an eight) please replace `compulsory.launch` with `controller_eight.launch` and `world:=wall` with `world:=empty`. Morever, please remove the spawning of the additional Thymio by commenting the include tags in `thymio_gazebo_brinup.launch`.
