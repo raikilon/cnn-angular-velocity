@@ -98,7 +98,7 @@ class ThymioController:
         )
 
         self.image = rospy.Subscriber(
-            self.name + '/camera/image_raw/compressed',  # name of the topic
+            self.name + '/camera/image_raw',  # name of the topic
             Image,  # message type
             self.image_callback
         )

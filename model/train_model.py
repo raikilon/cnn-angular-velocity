@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader
 import numpy as np
 import wandb
 import os
+import datetime
 from cnn_regressor import CNNRegressor
 from obstacle_position_dataset import ObstaclePositionDataset
 
@@ -21,8 +22,8 @@ parser.add_argument('data', metavar='PATH', help='path to dataset')
 parser.add_argument('--epochs', default=1000, type=int,
                     help='number of total epochs to run (early stopping is used to stop before this limit)')
 parser.add_argument('--batch_size', default=32, type=int, help='mini-batch size (default: 400)')
-parser.add_argument('--patience', default='50', type=int, help='patience of early stopping (default 50)')
-parser.add_argument('--feature_extraction', action='store_true', help='Do feature extraction (train only classifier)')
+parser.add_argument('--patience', default='25', type=int, help='patience of early stopping (default 50)')
+parser.add_argument('--feature_extraction', type=int, help='Do feature extraction (train only classifier)')
 parser.add_argument('--optimizer', default='SGD', help='model optimizer (default: SGD)')
 parser.add_argument('--learning_rate', default=0.001, type=float, help='initial learning rate (default: 0.01)')
 parser.add_argument('--weight_decay', default=1e-4, type=float, help='weight decay (default: 1e-4)')
@@ -31,12 +32,17 @@ parser.add_argument('--weight_decay', default=1e-4, type=float, help='weight dec
 def main():
     args = parser.parse_args()
 
+    if args.feature_extraction == 1:
+        feature = True
+    else:
+        feature = False
+        
     if torch.cuda.is_available():
         args.device = torch.device('cuda')
     else:
         args.device = torch.device('cpu')
 
-    model = CNNRegressor(2, args.feature_extraction)
+    model = CNNRegressor(2, feature)
 
     # Multi GPUs
     if torch.cuda.device_count() > 1:
@@ -65,24 +71,31 @@ def main():
     # train_set, val_set = random_split(dataset, [len(train_set) - val_size, val_size])
 
     # Final test set will be used only on the final architecture
-    train_loader = DataLoader(train_set, batch_size=32, shuffle=True, num_workers=4, pin_memory=True, drop_last=True)
-    val_loader = DataLoader(val_set, batch_size=32, shuffle=True, num_workers=4, pin_memory=True, drop_last=True)
-    test_loader = DataLoader(test_set, batch_size=32, shuffle=True, num_workers=4, pin_memory=True, drop_last=True)
+    train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=True,
+                              drop_last=True)
+    val_loader = DataLoader(val_set, batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=True,
+                            drop_last=True)
+    test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=True,
+                             drop_last=True)
 
     # Track model in wandb
-    # wandb.init(project="RoboticsProject", config=args)
+    wandb.init(project="RoboticsProject", config=args)
 
-    # wandb.watch(model)
+    wandb.watch(model)
+
+    args.name = 'model_best_{}.pth.tar'.format(datetime.now().strftime("%d-%b-%Y (%H:%M:%S)"))
 
     train(model, criterion, optimizer, train_loader, val_loader, args)
 
-    checkpoint = torch.load("best_model.pth.tar")
+    checkpoint = torch.load(args.name)
     model.load_state_dict(checkpoint['state_dict'])
     del checkpoint
     torch.cuda.empty_cache()
 
     test_loss = validate(test_loader, model, criterion, args)
-    # wandb.run.summary["Test loss"] = test_loss
+    wandb.run.summary["test_loss"] = test_loss
+
+    os.remove(args.name)
 
 
 def train(model, criterion, optimizer, train_loader, val_loader, args):
@@ -118,23 +131,22 @@ def train(model, criterion, optimizer, train_loader, val_loader, args):
 
         val_loss = validate(val_loader, model, criterion, args)
 
-        # wandb.log({"Loss": np.mean(losses)}, step=epoch)
-        # wandb.log({"Val loss": val_loss}, step=epoch)
+        wandb.log({"loss": np.mean(losses)}, step=epoch)
+        wandb.log({"val_loss": val_loss}, step=epoch)
 
         #  Save best model and best prediction
-        if val_loss > best_loss:
+        if val_loss < best_loss:
             best_loss = val_loss
             torch.save({
                 'state_dict': model.state_dict()
-            }, "best_model.pth.tar")
+            }, args.name)
             epoch_no_improve = 0
         else:
             # Early stopping
             epoch_no_improve += 1
             if epoch_no_improve == args.patience:
-                # wandb.run.summary["Best val loss"] = best_loss
-                # wandb.run.summary["Best val loss epoch"] = epoch - args.patience
-
+                wandb.run.summary["best_val_loss"] = best_loss
+                wandb.run.summary["best_val_loss_epoch"] = epoch - args.patience
                 return
 
 
@@ -147,8 +159,8 @@ def validate(test_loader, model, criterion, args):
         for batch_idx, (input_val, target_val) in enumerate(test_loader):
             target_val = target_val.to(device=args.device, non_blocking=True)
             input_val = input_val.to(device=args.device, non_blocking=True)
-
-            loss = criterion(input_val, target_val)
+            output = model(input_val)
+            loss = criterion(output, target_val)
             losses.append(loss.detach().cpu().numpy())
             del loss
             torch.cuda.empty_cache()
