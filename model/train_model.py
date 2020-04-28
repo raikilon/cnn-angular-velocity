@@ -36,6 +36,7 @@ def main():
         feature = True
     else:
         feature = False
+        
     if torch.cuda.is_available():
         args.device = torch.device('cuda')
     else:
@@ -92,7 +93,7 @@ def main():
     torch.cuda.empty_cache()
 
     test_loss = validate(test_loader, model, criterion, args)
-    wandb.run.summary["Test loss"] = test_loss
+    wandb.run.summary["test_loss"] = test_loss
 
     os.remove(args.name)
 
@@ -130,8 +131,8 @@ def train(model, criterion, optimizer, train_loader, val_loader, args):
 
         val_loss = validate(val_loader, model, criterion, args)
 
-        wandb.log({"Loss": np.mean(losses)}, step=epoch)
-        wandb.log({"Val loss": val_loss}, step=epoch)
+        wandb.log({"loss": np.mean(losses)}, step=epoch)
+        wandb.log({"val_loss": val_loss}, step=epoch)
 
         #  Save best model and best prediction
         if val_loss < best_loss:
@@ -144,8 +145,8 @@ def train(model, criterion, optimizer, train_loader, val_loader, args):
             # Early stopping
             epoch_no_improve += 1
             if epoch_no_improve == args.patience:
-                wandb.run.summary["Best val loss"] = best_loss
-                wandb.run.summary["Best val loss epoch"] = epoch - args.patience
+                wandb.run.summary["best_val_loss"] = best_loss
+                wandb.run.summary["best_val_loss_epoch"] = epoch - args.patience
                 return
 
 
