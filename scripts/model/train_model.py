@@ -36,7 +36,7 @@ def main():
         feature = True
     else:
         feature = False
-        
+
     if torch.cuda.is_available():
         args.device = torch.device('cuda')
     else:
@@ -62,10 +62,10 @@ def main():
         optimizer = SGD(filter(lambda p: p.requires_grad, model.parameters()), args.learning_rate,
                         weight_decay=args.weight_decay)
 
-    dataset = ObstaclePositionDataset(args.data)
+    dataset = ObstaclePositionDataset(os.path.join(args.data, "train"))
 
-    test_size = int((len(dataset) / 100) * 10)
-    train_set, val_set, test_set = random_split(dataset, [len(dataset) - (test_size * 2), test_size, test_size])
+    val_size = int((len(dataset) / 100) * 20)
+    train_set, val_set = random_split(dataset, [len(dataset) - val_size, val_size])
 
     # val_size = int((len(train_set) / 100) * 20)
     # train_set, val_set = random_split(dataset, [len(train_set) - val_size, val_size])
@@ -75,6 +75,8 @@ def main():
                               drop_last=True)
     val_loader = DataLoader(val_set, batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=True,
                             drop_last=True)
+
+    test_set = ObstaclePositionDataset(os.path.join(args.data, "val"))
     test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=True,
                              drop_last=True)
 
