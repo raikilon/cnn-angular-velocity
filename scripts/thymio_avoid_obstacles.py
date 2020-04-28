@@ -28,7 +28,7 @@ class ThymioController:
 
     def __init__(self):
         """Initialization."""
-        self.angular_speed = 0.2
+        self.angular_speed = 0
         self.speed = 0.2
         self.sign = 2
         self.status = ThymioController.FORWARD
@@ -104,14 +104,19 @@ class ThymioController:
             with torch.no_grad():
                 output = self.model(image.unsqueeze_(0))
                 output = output.detach().cpu().numpy()[0]
-                if output[0] > 0.1:
-                    self.status = ThymioController.ROTATING
-                    self.sign = -1
-                    self.current_angle = 0
-                elif output[0] < -0.1 or output[1] > 0.1:
-                    self.status = ThymioController.ROTATING
-                    self.sign = 1
-                    self.current_angle = 0
+
+                # Think that there is a centered object
+                if output[1] > abs(output[0]):
+                    print("Center")
+                    # get best direction to go away from centered object
+                    sign = - np.sign(output[0])
+                    self.angular_speed = sign * output[1]
+                else:
+                    self.angular_speed = - output[0]
+                    if output[0] > 0:
+                        print("LEFT")
+                    else:
+                        print("RIGHT")
 
             self.start = time.time()
 
@@ -135,7 +140,7 @@ class ThymioController:
         while not rospy.is_shutdown():
             if self.status == ThymioController.FORWARD:
                 # decide control action
-                velocity = self.get_control(self.speed, 0)
+                velocity = self.get_control(self.speed, self.angular_speed)
 
                 # publish velocity message
                 self.velocity_publisher.publish(velocity)
