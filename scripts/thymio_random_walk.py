@@ -15,13 +15,13 @@ from cv_bridge import CvBridge, CvBridgeError
 import cv2
 import os.path
 import time
+import os
 
 
 class ThymioController:
     FORWARD = 1
     ROTATING = 2
     ROTATING_ORTHOGONAL = 3
-    DONE = 5
     count = 0
 
     def __init__(self):
@@ -30,13 +30,20 @@ class ThymioController:
         self.angular_speed = 0.2
         self.speed = 0.2
         self.sign = 2
-        self.min_wall_distance = 0.04
         self.status = ThymioController.FORWARD
         self.start = time.time()
-        # Instantiate CvBridge
         self.bridge = CvBridge()
         self.image_count = 0
         self.sensors = []
+        self.path = os.path.dirname(os.path.abspath(__file__))
+        self.data = None
+
+        if not os.path.exists(self.path + "/data"):
+            os.makedirs(self.path + "/data")
+
+        if not os.path.exists(self.path + "/data/imgs"):
+            os.makedirs(self.path + "/data/imgs")
+
         # initialize the node
         rospy.init_node(
             'thymio_controller' + str(ThymioController.count)  # name of the node
@@ -44,9 +51,6 @@ class ThymioController:
 
         ThymioController.count = ThymioController.count + 1
         self.name = rospy.get_param('~robot_name')
-
-        # log robot name to console
-        rospy.loginfo('Controlling %s' % self.name)
 
         # create velocity publisher
         self.velocity_publisher = rospy.Publisher(
@@ -117,14 +121,12 @@ class ThymioController:
             cv2_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
 
             # Save your OpenCV2 image as a jpeg
-            cv2.imwrite("data/imgs/{}.jpeg".format(self.image_count), cv2_img)
-            if os.path.isfile('data/sensor_data.npy'):
-                data = np.load("data/sensor_data.npy")
-                data = np.append(data, self.ranges)
+            cv2.imwrite(self.path + "/data/imgs/{}.jpeg".format(self.image_count), cv2_img)
+            if self.data is not None:
+                self.data = np.append(self.data, self.ranges)
             else:
-                data = self.ranges
+                self.data = self.ranges
 
-            np.save("data/sensor_data.npy", data)
             self.start = time.time()
             self.image_count += 1
 
@@ -209,6 +211,8 @@ class ThymioController:
                 self.velocity_publisher.publish(self.get_control(0, self.angular_speed))
             # sleep until next step
             self.rate.sleep()
+
+        np.save(self.path + "/data/sensor_data.npy", self.data)
 
     def stop(self):
         """Stops the robot."""
