@@ -40,14 +40,13 @@ class ThymioController:
         self.sensors = []
         self.path = os.path.dirname(os.path.abspath(__file__))
         self.data = None
-        self.flagged_point = 1.2
 
         if not os.path.exists(self.path + "/data"):
             os.makedirs(self.path + "/data")
 
         if not os.path.exists(self.path + "/data/imgs"):
             os.makedirs(self.path + "/data/imgs")
-
+        
         # initialize the node
         rospy.init_node(
             'thymio_controller' + str(ThymioController.count)  # name of the node
@@ -170,6 +169,15 @@ class ThymioController:
 	        # Convert your ROS Image message to OpenCV2
 	    	cv2_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
 
+	        # Save your OpenCV2 image as a jpeg
+	       	cv2.imwrite(self.path + "/data/imgs/{}.jpeg".format(self.image_count), cv2_img)
+	        if os.path.isfile('data/sensor_data.npy'):
+	            data = np.load("data/sensor_data.npy",allow_pickle=True)
+	            data = np.append(data, self.ranges)
+	        else:
+	            data = self.ranges
+
+	        np.save("data/sensor_data.npy", data)
 	        self.start = time.time()
 	        self.image_count += 1
 
@@ -177,23 +185,7 @@ class ThymioController:
         """Updates robot pose and velocities, and logs pose to console."""
         sensor_range = data.range
         self.ranges[topic] = sensor_range
-        max_range = 1.2
-        min_range = 0.2
-        step = (max_range - min_range) / 3
-
-        if sensor_range < self.flagged_point:
-            if self.status == ThymioController.FORWARD:
-                # Save your OpenCV2 image as a jpeg
-                if os.path.isfile('data/sensor_data.npy'):
-                    data = np.load("data/sensor_data.npy",allow_pickle=True)
-                    data = np.append(data, self.ranges)
-                else:
-                    data = self.ranges
-
-                np.save("data/sensor_data.npy", data)
-                flagged_point = flagged_point - step
-
-        if sensor_range < min_range:
+        if sensor_range < 0.2:
             if self.status == ThymioController.FORWARD:
                 dif = self.ranges["left"] - self.ranges["right"]
 
@@ -203,15 +195,6 @@ class ThymioController:
                     self.status = ThymioController.ROTATING
                 velocity = self.get_control(0, 0)
                 self.velocity_publisher.publish(velocity)
-
-                if os.path.isfile('data/object_flags.npy'):
-                    flags = np.load("data/object_flags.npy", allow_pickle=True)
-                    flags = np.append(flags, self.image_count - 1)
-                else:
-                    flags = self.image_count - 1
-
-                np.save("data/object_flags.npy", flags)
-                flagged_point = max_range
 
     def sense_ground(self, data, topic):
     	sensor_range = data.range
