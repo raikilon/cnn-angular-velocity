@@ -162,7 +162,7 @@ class ThymioController:
 	        # Save your OpenCV2 image as a jpeg
 	       	cv2.imwrite("data/{}.jpeg".format(self.image_count), cv2_img)
 	        if os.path.isfile('data/sensor_data.npy'):
-	            data = np.load("data/sensor_data.npy")
+	            data = np.load("data/sensor_data.npy",allow_pickle=True)
 	            data = np.append(data, self.ranges)
 	        else:
 	            data = self.ranges
