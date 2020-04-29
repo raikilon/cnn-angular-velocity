@@ -18,312 +18,339 @@ import time
 
 
 class ThymioController:
-    FORWARD = 1
-    ROTATING = 2
-    ROTATING_ORTHOGONAL = 3
-    BACKING_UP = 4
-    DONE = 5
-    count = 0
+	FORWARD = 1
+	ROTATING = 2
+	ROTATING_ORTHOGONAL = 3
+	BACKING_UP = 4
+	DONE = 5
+	count = 0
 
-    def __init__(self):
-        """Initialization."""
-        self.ranges = {}
-        self.angular_speed = 0.2
-        self.speed = 0.05 #originally was 0.2
-        self.sign = 2
-        self.min_wall_distance = 0.04
-        self.status = ThymioController.FORWARD
-        self.start = time.time()
-        # Instantiate CvBridge
-        self.bridge = CvBridge()
-        self.image_count = 0
-        self.sensors = []
-        # initialize the node
-        rospy.init_node(
-            'thymio_controller' + str(ThymioController.count)  # name of the node
-        )
+	def __init__(self):
+		"""Initialization."""
+		self.ranges = {}
+		self.angular_speed = 0.2
+		self.speed = 0.05 #originally was 0.2
+		self.sign = 2
+		self.min_wall_distance = 0.04
+		self.status = ThymioController.FORWARD
+		self.start = time.time()
+		# Instantiate CvBridge
+		self.bridge = CvBridge()
+		self.image_count = 0
+		self.sensors = []
+		self.path = os.path.dirname(os.path.abspath(__file__))
+		self.data = None
+		self.flagged_point = 1.2
 
-        ThymioController.count = ThymioController.count + 1
-        self.name = rospy.get_param('~robot_name')
+		if not os.path.exists(self.path + "/data"):
+			os.makedirs(self.path + "/data")
 
-        # log robot name to console
-        rospy.loginfo('Controlling %s' % self.name)
+		if not os.path.exists(self.path + "/data/imgs"):
+			os.makedirs(self.path + "/data/imgs")
 
-        # create velocity publisher
-        self.velocity_publisher = rospy.Publisher(
-            self.name + '/cmd_vel',  # name of the topic
-            Twist,  # message type
-            queue_size=10  # queue size
-        )
+		# initialize the node
+		rospy.init_node(
+			'thymio_controller' + str(ThymioController.count)  # name of the node
+		)
 
-        # create pose subscriber
-        # self.pose_subscriber = rospy.Subscriber(
-        #     self.name + '/odom',  # name of the topic
-        #     Odometry,  # message type
-        #     self.log_odometry  # function that hanldes incoming messages
-        # )
+		ThymioController.count = ThymioController.count + 1
+		self.name = rospy.get_param('~robot_name')
 
-        self.prox_center_sub = rospy.Subscriber(
-            self.name + '/proximity/left',  # name of the topic
-            Range,  # message type
-            self.sense_prox,  # function that hanldes incoming messages
-            "left"
-        )
+		# log robot name to console
+		rospy.loginfo('Controlling %s' % self.name)
 
-        self.prox_center_sub = rospy.Subscriber(
-            self.name + '/proximity/center_left',  # name of the topic
-            Range,  # message type
-            self.sense_prox,  # function that hanldes incoming messages
-            "center_left"
-        )
+		# create velocity publisher
+		self.velocity_publisher = rospy.Publisher(
+			self.name + '/cmd_vel',  # name of the topic
+			Twist,  # message type
+			queue_size=10  # queue size
+		)
 
-        self.prox_center_sub = rospy.Subscriber(
-            self.name + '/proximity/center',  # name of the topic
-            Range,  # message type
-            self.sense_prox,  # function that hanldes incoming messages
-            "center"
-        )
+		# create pose subscriber
+		# self.pose_subscriber = rospy.Subscriber(
+		#     self.name + '/odom',  # name of the topic
+		#     Odometry,  # message type
+		#     self.log_odometry  # function that hanldes incoming messages
+		# )
 
-        self.prox_center_sub = rospy.Subscriber(
-            self.name + '/proximity/center_right',  # name of the topic
-            Range,  # message type
-            self.sense_prox,  # function that hanldes incoming messages
-            "center_right"
-        )
+		self.prox_center_sub = rospy.Subscriber(
+			self.name + '/proximity/left',  # name of the topic
+			Range,  # message type
+			self.sense_prox,  # function that hanldes incoming messages
+			"left"
+		)
 
-        self.prox_center_sub = rospy.Subscriber(
-            self.name + '/proximity/right',  # name of the topic
-            Range,  # message type
-            self.sense_prox,  # function that hanldes incoming messages
-            "right"
-        )
+		self.prox_center_sub = rospy.Subscriber(
+			self.name + '/proximity/center_left',  # name of the topic
+			Range,  # message type
+			self.sense_prox,  # function that hanldes incoming messages
+			"center_left"
+		)
 
-        self.image = rospy.Subscriber(
-            self.name + '/camera/image_raw',  # name of the topic
-            Image,  # message type
-            self.image_callback
-        )
+		self.prox_center_sub = rospy.Subscriber(
+			self.name + '/proximity/center',  # name of the topic
+			Range,  # message type
+			self.sense_prox,  # function that hanldes incoming messages
+			"center"
+		)
 
-        self.prox_down_left = rospy.Subscriber(
-        	self.name + '/ground/left',
-        	Range,
-        	self.sense_ground,
-        	"left"
-        )
+		self.prox_center_sub = rospy.Subscriber(
+			self.name + '/proximity/center_right',  # name of the topic
+			Range,  # message type
+			self.sense_prox,  # function that hanldes incoming messages
+			"center_right"
+		)
 
-        self.prox_down_left = rospy.Subscriber(
-        	self.name + '/ground/right',
-        	Range,
-        	self.sense_ground,
-        	"right"
-        )
+		self.prox_center_sub = rospy.Subscriber(
+			self.name + '/proximity/right',  # name of the topic
+			Range,  # message type
+			self.sense_prox,  # function that hanldes incoming messages
+			"right"
+		)
 
-        # tell ros to call stop when the program is terminated
-        rospy.on_shutdown(self.stop)
+		self.image = rospy.Subscriber(
+			self.name + '/camera/image_raw',  # name of the topic
+			Image,  # message type
+			self.image_callback
+		)
 
-        # initialize pose to (X=0, Y=0, theta=0)
-        self.pose = Pose()
+		self.prox_down_left = rospy.Subscriber(
+			self.name + '/ground/left',
+			Range,
+			self.sense_ground,
+			"left"
+		)
 
-        # initialize linear and angular velocities to 0
-        self.velocity = Twist()
+		self.prox_down_left = rospy.Subscriber(
+			self.name + '/ground/right',
+			Range,
+			self.sense_ground,
+			"right"
+		)
 
-        # set node update frequency in Hz
-        self.rate = rospy.Rate(10)
+		# tell ros to call stop when the program is terminated
+		rospy.on_shutdown(self.stop)
 
-    def human_readable_pose2d(self, pose):
-        """Converts pose message to a human readable pose tuple."""
+		# initialize pose to (X=0, Y=0, theta=0)
+		self.pose = Pose()
 
-        # create a quaternion from the pose
-        quaternion = (
-            pose.orientation.x,
-            pose.orientation.y,
-            pose.orientation.z,
-            pose.orientation.w
-        )
+		# initialize linear and angular velocities to 0
+		self.velocity = Twist()
 
-        # convert quaternion rotation to euler rotation
-        roll, pitch, yaw = euler_from_quaternion(quaternion)
+		# set node update frequency in Hz
+		self.rate = rospy.Rate(10)
 
-        result = (
-            pose.position.x,  # x position
-            pose.position.y,  # y position
-            yaw  # theta angle
-        )
+	def human_readable_pose2d(self, pose):
+		"""Converts pose message to a human readable pose tuple."""
 
-        return result
+		# create a quaternion from the pose
+		quaternion = (
+			pose.orientation.x,
+			pose.orientation.y,
+			pose.orientation.z,
+			pose.orientation.w
+		)
 
-    def image_callback(self, msg):
+		# convert quaternion rotation to euler rotation
+		roll, pitch, yaw = euler_from_quaternion(quaternion)
 
-        milsec = time.time() - self.start
+		result = (
+			pose.position.x,  # x position
+			pose.position.y,  # y position
+			yaw  # theta angle
+		)
 
-        if milsec > 1:
-	        # Convert your ROS Image message to OpenCV2
-	    	cv2_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+		return result
 
-	        # Save your OpenCV2 image as a jpeg
-	       	cv2.imwrite("data/{}.jpeg".format(self.image_count), cv2_img)
-	        if os.path.isfile('data/sensor_data.npy'):
-	            data = np.load("data/sensor_data.npy",allow_pickle=True)
-	            data = np.append(data, self.ranges)
-	        else:
-	            data = self.ranges
+	def image_callback(self, msg):
 
-	        np.save("data/sensor_data.npy", data)
-	        self.start = time.time()
-	        self.image_count += 1
+		milsec = time.time() - self.start
 
-    def sense_prox(self, data, topic):
-        """Updates robot pose and velocities, and logs pose to console."""
-        sensor_range = data.range
-        self.ranges[topic] = sensor_range
-        if sensor_range < 0.2:
-            if self.status == ThymioController.FORWARD:
-                dif = self.ranges["left"] - self.ranges["right"]
+		if milsec > 4:
+			# Convert your ROS Image message to OpenCV2
+			cv2_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+			# Save your OpenCV2 image as a jpeg
+			cv2.imwrite(self.path + "/data/imgs/{}.jpeg".format(self.image_count),cv2_img) 
 
-                if np.isclose(0, dif, atol=0.005):
-                    self.status = ThymioController.ROTATING_ORTHOGONAL
-                else:
-                    self.status = ThymioController.ROTATING
-                velocity = self.get_control(0, 0)
-                self.velocity_publisher.publish(velocity)
+			self.start = time.time()
+			self.image_count += 1
 
-    def sense_ground(self, data, topic):
-    	sensor_range = data.range
-    	self.ranges[topic] = sensor_range
-    	# implement a moving average compared to a hard thershold?
-    	if (sensor_range > 0.15) and (self.status == ThymioController.FORWARD):
-            
-            self.status = ThymioController.BACKING_UP
-            velocity = self.get_control(0, 0)
-            self.velocity_publisher.publish(velocity)
+	def sense_prox(self, data, topic):
+		"""Updates robot pose and velocities, and logs pose to console."""
+		sensor_range = data.range
+		self.ranges[topic] = sensor_range
+		max_range = 0.12
+		min_range = 0.05
+		step = (max_range - min_range) / 3
 
-	       # store the pitfall flag with the identifier number of the previous image
-            if os.path.isfile('data/pitfall_flags.npy'):
-                flags = np.load("data/pitfall_flags.npy", allow_pickle=True)
-                flags = np.append(flags, self.image_count - 1)
-            else:
-                flags = self.image_count - 1
+		if sensor_range < self.flagged_point:
+			if self.status == ThymioController.FORWARD:
 
-	        np.save("data/pitfall_flags.npy", flags)
+				if os.path.isfile(self.path + "/data/sensor_data.npy"):
+					data = np.load(self.path + "/data/sensor_data.npy", allow_pickle=True)
+					data = np.append(data, self.ranges)
+				else:
+					data = self.ranges
 
-    def log_odometry(self, data):
+				np.save(self.path + "/data/sensor_data.npy", data)
+				self.flagged_point = self.flagged_point - step
 
-        """Updates robot pose and velocities, and logs pose to console."""
-        self.pose = data.pose.pose
-        self.velocity = data.twist.twist
+		if sensor_range < min_range:
+			if self.status == ThymioController.FORWARD:
+				dif = self.ranges["left"] - self.ranges["right"]
 
-        printable_pose = self.human_readable_pose2d(self.pose)
+				if np.isclose(0, dif, atol=0.005):
+					self.status = ThymioController.ROTATING_ORTHOGONAL
+				else:
+					self.status = ThymioController.ROTATING
+				velocity = self.get_control(0, 0)
+				self.velocity_publisher.publish(velocity)
 
-        # log robot's pose
-        rospy.loginfo_throttle(
-            period=1,  # log every 10 seconds
-            msg=self.name + ' (%.3f, %.3f, %.3f) ' % printable_pose  # message
-        )
+				if os.path.isfile(self.path + "/data/object_flags.npy"):
+					flags = np.load(self.path + "/data/object_flags.npy", allow_pickle=True)
+					flags = np.append(flags, self.image_count - 1)
+				else:
+					flags = self.image_count - 1
 
-    def get_control(self, vel, ang):
-        return Twist(
-            linear=Vector3(
-                vel,  # moves forward .2 m/s
-                .0,
-                .0,
-            ),
-            angular=Vector3(
-                .0,
-                .0,
-                ang
-            )
-        )
+				np.save(self.path + "/data/object_flags.npy", flags)
+				self.flagged_point = max_range
 
-    def get_angular_velocity(self, dif, status):
-        if np.isclose(0, dif, atol=0.001):
-            velocity = self.get_control(0, 0)
-            self.status = status
-        elif dif > 0:
-            velocity = self.get_control(0, self.angular_speed)
-        else:
-            velocity = self.get_control(0, -self.angular_speed)
+	def sense_ground(self, data, topic):
+		sensor_range = data.range
+		self.ranges[topic] = sensor_range
+		# implement a moving average compared to a hard thershold?
+		if (sensor_range > 0.11) and (self.status == ThymioController.FORWARD):
+			self.status = ThymioController.BACKING_UP
+			velocity = self.get_control(0, 0)
+			self.velocity_publisher.publish(velocity)
 
-        return velocity
+		   # store the pitfall flag with the identifier number of the previous image
+			if os.path.isfile('data/pitfall_flags.npy'):
+				flags = np.load("data/pitfall_flags.npy", allow_pickle=True)
+				flags = np.append(flags, self.image_count - 1)
+			else:
+				flags = self.image_count - 1
 
-    def run(self):
-        """Controls the Thymio."""
+			np.save("data/pitfall_flags.npy", flags)
 
-        while not rospy.is_shutdown():
-            if self.status == ThymioController.FORWARD:
-                # decide control action
-                velocity = self.get_control(self.speed, 0)
+	def log_odometry(self, data):
 
-                # publish velocity message
-                self.velocity_publisher.publish(velocity)
-            elif self.status == ThymioController.ROTATING:
-                dif = self.ranges["left"] - self.ranges["right"]
+		"""Updates robot pose and velocities, and logs pose to console."""
+		self.pose = data.pose.pose
+		self.velocity = data.twist.twist
 
-                if np.isclose(0, dif, atol=0.005):
-                    self.velocity_publisher.publish(self.get_control(0, 0))
-                    t0 = rospy.Time.now().to_sec()
-                    current_angle = 0
-                    angle = np.deg2rad(np.random.randint(5, 45))
+		printable_pose = self.human_readable_pose2d(self.pose)
 
-                    while current_angle < angle:
-                        self.velocity_publisher.publish(self.get_control(0, self.angular_speed * self.sign))
-                        t1 = rospy.Time.now().to_sec()
-                        current_angle = self.angular_speed * (t1 - t0)
+		# log robot's pose
+		rospy.loginfo_throttle(
+			period=1,  # log every 10 seconds
+			msg=self.name + ' (%.3f, %.3f, %.3f) ' % printable_pose  # message
+		)
 
-                    self.sign = 2
-                    self.status = ThymioController.FORWARD
-                else:
-                    if self.sign == 2:
-                        self.sign = np.sign(dif)
-                    # publish velocity message
+	def get_control(self, vel, ang):
+		return Twist(
+			linear=Vector3(
+				vel,  # moves forward .2 m/s
+				.0,
+				.0,
+			),
+			angular=Vector3(
+				.0,
+				.0,
+				ang
+			)
+		)
 
-                    self.velocity_publisher.publish(self.get_control(0, self.angular_speed * self.sign))
+	def get_angular_velocity(self, dif, status):
+		if np.isclose(0, dif, atol=0.001):
+			velocity = self.get_control(0, 0)
+			self.status = status
+		elif dif > 0:
+			velocity = self.get_control(0, self.angular_speed)
+		else:
+			velocity = self.get_control(0, -self.angular_speed)
 
-            # When Thymio is orthogonal to an object
-            elif self.status == ThymioController.ROTATING_ORTHOGONAL:
+		return velocity
 
-                self.velocity_publisher.publish(self.get_control(0, 0))
-                t0 = rospy.Time.now().to_sec()
-                current_angle = 0
-                angle = np.deg2rad(90 + np.random.randint(5, 45))
-                rand_dir = 1 if np.random.random() < 0.5 else -1
-                while current_angle < angle:
-                    self.velocity_publisher.publish(self.get_control(0, self.angular_speed * rand_dir))
-                    t1 = rospy.Time.now().to_sec()
-                    current_angle = self.angular_speed * (t1 - t0)
+	def run(self):
+		"""Controls the Thymio."""
 
-                self.status = ThymioController.FORWARD
+		while not rospy.is_shutdown():
+			if self.status == ThymioController.FORWARD:
+				# decide control action
+				velocity = self.get_control(self.speed, 0)
 
-            elif self.status == ThymioController.BACKING_UP:
-                self.velocity_publisher.publish(self.get_control(0, 0))
-                t0 = rospy.Time.now().to_sec()
-                current_distance = 0
-                distance = 0.1
-                backup_speed = 0.1
-                while current_distance < distance:
-                    self.velocity_publisher.publish(self.get_control(-backup_speed, 0))
-                    t1 = rospy.Time.now().to_sec()
-                    current_distance = backup_speed * (t1 - t0)
-                self.status = ThymioController.ROTATING_ORTHOGONAL
+				# publish velocity message
+				self.velocity_publisher.publish(velocity)
+			elif self.status == ThymioController.ROTATING:
+				dif = self.ranges["left"] - self.ranges["right"]
 
-            elif self.status == ThymioController.DONE:
-                self.velocity_publisher.publish(self.get_control(0, self.angular_speed))
-            # sleep until next step
-            self.rate.sleep()
+				if np.isclose(0, dif, atol=0.005):
+					self.velocity_publisher.publish(self.get_control(0, 0))
+					t0 = rospy.Time.now().to_sec()
+					current_angle = 0
+					angle = np.deg2rad(np.random.randint(5, 45))
 
-    def stop(self):
-        """Stops the robot."""
+					while current_angle < angle:
+						self.velocity_publisher.publish(self.get_control(0, self.angular_speed * self.sign))
+						t1 = rospy.Time.now().to_sec()
+						current_angle = self.angular_speed * (t1 - t0)
 
-        self.velocity_publisher.publish(
-            Twist()  # set velocities to 0
-        )
+					self.sign = 2
+					self.status = ThymioController.FORWARD
+				else:
+					if self.sign == 2:
+						self.sign = np.sign(dif)
+					# publish velocity message
 
-        self.rate.sleep()
+					self.velocity_publisher.publish(self.get_control(0, self.angular_speed * self.sign))
+
+			# When Thymio is orthogonal to an object
+			elif self.status == ThymioController.ROTATING_ORTHOGONAL:
+
+				self.velocity_publisher.publish(self.get_control(0, 0))
+				t0 = rospy.Time.now().to_sec()
+				current_angle = 0
+				angle = np.deg2rad(90 + np.random.randint(5, 45))
+				rand_dir = 1 if np.random.random() < 0.5 else -1
+				while current_angle < angle:
+					self.velocity_publisher.publish(self.get_control(0, self.angular_speed * rand_dir))
+					t1 = rospy.Time.now().to_sec()
+					current_angle = self.angular_speed * (t1 - t0)
+
+				self.status = ThymioController.FORWARD
+
+			elif self.status == ThymioController.BACKING_UP:
+				self.velocity_publisher.publish(self.get_control(0, 0))
+				t0 = rospy.Time.now().to_sec()
+				current_distance = 0
+				distance = 0.1
+				backup_speed = 0.1
+				while current_distance < distance:
+					self.velocity_publisher.publish(self.get_control(-backup_speed, 0))
+					t1 = rospy.Time.now().to_sec()
+					current_distance = backup_speed * (t1 - t0)
+				self.status = ThymioController.ROTATING_ORTHOGONAL
+
+			elif self.status == ThymioController.DONE:
+				self.velocity_publisher.publish(self.get_control(0, self.angular_speed))
+			# sleep until next step
+			self.rate.sleep()
+
+	def stop(self):
+		"""Stops the robot."""
+
+		self.velocity_publisher.publish(
+			Twist()  # set velocities to 0
+		)
+
+		self.rate.sleep()
 
 
 if __name__ == '__main__':
-    controller = ThymioController()
+	controller = ThymioController()
 
-    try:
-        controller.run()
-    except rospy.ROSInterruptException as e:
-        pass
+	try:
+		controller.run()
+	except rospy.ROSInterruptException as e:
+		pass
