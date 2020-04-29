@@ -47,7 +47,8 @@ class ObstaclePositionDataset(Dataset):
         step = 1
         for img_idx in pitfall_flags:
             for j in range(0, 3):
-                self.targets[2, img_idx - j] = step - 1/3
+                self.targets[2, img_idx - j] = step
+                step = step - 1/3
 
         ####### End: Implementation of extra part, not relying on artificial simulation data
 

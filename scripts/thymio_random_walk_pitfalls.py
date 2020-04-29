@@ -22,7 +22,6 @@ class ThymioController:
     ROTATING = 2
     ROTATING_ORTHOGONAL = 3
     BACKING_UP = 4
-    DONE = 5
     count = 0
 
     def __init__(self):
@@ -148,7 +147,7 @@ class ThymioController:
                 if self.data is not None:
                     self.data = np.append(self.data, self.ranges.copy())
                 else:
-                    self.data = self.ranges
+                    self.data = self.ranges.copy()
 
                 self.start = time.time()
                 self.image_count += 1

@@ -22,7 +22,6 @@ class ThymioController:
     ROTATING = 2
     ROTATING_ORTHOGONAL = 3
     BACKING_UP = 4
-    DONE = 5
     count = 0
 
     def __init__(self):
@@ -180,7 +179,7 @@ class ThymioController:
                 if self.data is not None:
                     self.data = np.append(self.data, self.ranges.copy())
                 else:
-                    self.data = self.ranges
+                    self.data = self.ranges.copy()
 
                 self.flagged_point = self.flagged_point - self.step
 
@@ -274,8 +273,6 @@ class ThymioController:
                     current_distance = backup_speed * (t1 - t0)
                 self.status = ThymioController.ROTATING_ORTHOGONAL
 
-            elif self.status == ThymioController.DONE:
-                self.velocity_publisher.publish(self.get_control(0, self.angular_speed))
             # sleep until next step
             self.rate.sleep()
 

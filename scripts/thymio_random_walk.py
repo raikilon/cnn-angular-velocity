@@ -125,7 +125,7 @@ class ThymioController:
             if self.data is not None:
                 self.data = np.append(self.data, self.ranges.copy())
             else:
-                self.data = self.ranges
+                self.data = self.ranges.copy()
 
             self.start = time.time()
             self.image_count += 1
