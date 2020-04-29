@@ -143,29 +143,22 @@ class ThymioController:
         milsec = time.time() - self.start
 
         if milsec > 4:
-            # Convert your ROS Image message to OpenCV2
-            cv2_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
-            # Save your OpenCV2 image as a jpeg
-            cv2.imwrite(self.path + "/data/imgs/{}.jpeg".format(self.image_count), cv2_img)
+            if self.status == ThymioController.FORWARD:
+                # Convert your ROS Image message to OpenCV2
+                cv2_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+                # Save your OpenCV2 image as a jpeg
+                cv2.imwrite(self.path + "/data/imgs/{}.jpeg".format(self.image_count), cv2_img)
 
-            self.start = time.time()
-            self.image_count += 1
+                self.start = time.time()
+                self.image_count += 1
 
     def sense_prox(self, data, topic):
         """Updates robot pose and velocities, and logs pose to console."""
         sensor_range = data.range
         self.ranges[topic] = sensor_range
-        if self.status == ThymioController.FORWARD:
-            if sensor_range < self.flagged_point:
 
-                if self.data is not None:
-                    self.data = np.append(self.data, self.ranges)
-                else:
-                    self.data = self.ranges
-
-                self.flagged_point = self.flagged_point - self.step
-
-            if sensor_range < self.min_range:
+        if sensor_range < self.min_range:
+            if self.status == ThymioController.FORWARD:
                 dif = self.ranges["left"] - self.ranges["right"]
 
                 if np.isclose(0, dif, atol=0.005):
@@ -181,6 +174,15 @@ class ThymioController:
                     self.prox_flags = [self.image_count - 1]
 
                 self.flagged_point = self.max_range
+
+        if sensor_range < self.flagged_point:
+            if self.status == ThymioController.FORWARD:
+                if self.data is not None:
+                    self.data = np.append(self.data, self.ranges)
+                else:
+                    self.data = self.ranges
+
+                self.flagged_point = self.flagged_point - self.step
 
     def sense_ground(self, data, topic):
         sensor_range = data.range

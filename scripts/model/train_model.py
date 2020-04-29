@@ -15,7 +15,7 @@ import wandb
 import os
 from datetime import datetime
 from cnn_regressor import CNNRegressor
-from obstacle_position_dataset import ObstaclePositionDataset
+from obstacle_position_dataset2 import ObstaclePositionDataset
 
 parser = argparse.ArgumentParser(description='PyTorch Rotation Training')
 parser.add_argument('data', metavar='PATH', help='path to dataset')
