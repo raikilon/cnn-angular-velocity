@@ -146,7 +146,7 @@ class ThymioController:
                 cv2.imwrite(self.path + "/data/imgs/{}.jpeg".format(self.image_count), cv2_img)
 
                 if self.data is not None:
-                    self.data = np.append(self.data, self.ranges)
+                    self.data = np.append(self.data, self.ranges.copy())
                 else:
                     self.data = self.ranges
 

@@ -178,7 +178,7 @@ class ThymioController:
         if sensor_range < self.flagged_point:
             if self.status == ThymioController.FORWARD:
                 if self.data is not None:
-                    self.data = np.append(self.data, self.ranges)
+                    self.data = np.append(self.data, self.ranges.copy())
                 else:
                     self.data = self.ranges
 
