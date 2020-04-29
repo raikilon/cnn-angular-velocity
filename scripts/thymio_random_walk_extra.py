@@ -22,6 +22,7 @@ class ThymioController:
     ROTATING = 2
     ROTATING_ORTHOGONAL = 3
     BACKING_UP = 4
+    ROTATING_PITFALL = 5
     count = 0
 
     def __init__(self):
@@ -40,6 +41,7 @@ class ThymioController:
         self.path = os.path.dirname(os.path.abspath(__file__))
         self.data = None
         self.flags = None
+        self.pitfall_side = 1
         self.prox_flags = None
         self.max_range = 0.12
         self.min_range = 0.05
@@ -189,6 +191,11 @@ class ThymioController:
         # implement a moving average compared to a hard thershold?
         if (sensor_range > 0.11) and (self.status == ThymioController.FORWARD):
 
+            if topic == "ground_right":
+                self.pitfall_side = 1
+            else:
+                self.pitfall_side = -1
+
             self.status = ThymioController.BACKING_UP
             velocity = self.get_control(0, 0)
             self.velocity_publisher.publish(velocity)
@@ -271,7 +278,20 @@ class ThymioController:
                     self.velocity_publisher.publish(self.get_control(-backup_speed, 0))
                     t1 = rospy.Time.now().to_sec()
                     current_distance = backup_speed * (t1 - t0)
-                self.status = ThymioController.ROTATING_ORTHOGONAL
+                self.status = ThymioController.ROTATING_PITFALL
+
+            elif self.status == ThymioController.ROTATING_PITFALL:
+                print("in ROTATING_PITFALL")
+                self.velocity_publisher.publish(self.get_control(0, 0))
+                t0 = rospy.Time.now().to_sec()
+                current_angle = 0
+                angle = np.deg2rad(90 + np.random.randint(5, 45))
+                while current_angle < angle:
+                    self.velocity_publisher.publish(self.get_control(0, self.angular_speed * self.pitfall_side))
+                    t1 = rospy.Time.now().to_sec()
+                    current_angle = self.angular_speed * (t1 - t0)
+
+                self.status = ThymioController.FORWARD
 
             # sleep until next step
             self.rate.sleep()
