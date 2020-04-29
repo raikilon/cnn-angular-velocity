@@ -179,7 +179,7 @@ class ThymioController:
 
             # store the pitfall flag with the identifier number of the previous image
             if self.flags is not None:
-                self.flags = np.append(np.flags, self.image_count - 1)
+                self.flags = np.append(self.flags, self.image_count - 1)
             else:
                 self.flags = [self.image_count - 1]
 
