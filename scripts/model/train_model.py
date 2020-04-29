@@ -22,7 +22,7 @@ parser.add_argument('data', metavar='PATH', help='path to dataset')
 parser.add_argument('--epochs', default=1000, type=int,
                     help='number of total epochs to run (early stopping is used to stop before this limit)')
 parser.add_argument('--batch_size', default=32, type=int, help='mini-batch size (default: 400)')
-parser.add_argument('--patience', default='25', type=int, help='patience of early stopping (default 50)')
+parser.add_argument('--patience', default='10', type=int, help='patience of early stopping (default 50)')
 parser.add_argument('--feature_extraction', type=int, help='Do feature extraction (train only classifier)')
 parser.add_argument('--optimizer', default='SGD', help='model optimizer (default: SGD)')
 parser.add_argument('--learning_rate', default=0.001, type=float, help='initial learning rate (default: 0.01)')
