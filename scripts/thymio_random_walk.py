@@ -207,12 +207,8 @@ class ThymioController:
 
                 self.status = ThymioController.FORWARD
 
-            elif self.status == ThymioController.DONE:
-                self.velocity_publisher.publish(self.get_control(0, self.angular_speed))
             # sleep until next step
             self.rate.sleep()
-
-        np.save(self.path + "/data/sensor_data.npy", self.data)
 
     def stop(self):
         """Stops the robot."""
@@ -230,4 +226,5 @@ if __name__ == '__main__':
     try:
         controller.run()
     except rospy.ROSInterruptException as e:
+        np.save(controller.path + "/data/sensor_data.npy", controller.data)
         pass

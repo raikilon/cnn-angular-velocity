@@ -29,7 +29,7 @@ class ThymioController:
         """Initialization."""
         self.ranges = {}
         self.angular_speed = 0.2
-        self.speed = 0.05 #originally was 0.2
+        self.speed = 0.05  # originally was 0.2
         self.sign = 2
         self.min_wall_distance = 0.04
         self.status = ThymioController.FORWARD
@@ -40,13 +40,14 @@ class ThymioController:
         self.sensors = []
         self.path = os.path.dirname(os.path.abspath(__file__))
         self.data = None
+        self.flags = None
 
         if not os.path.exists(self.path + "/data"):
             os.makedirs(self.path + "/data")
 
         if not os.path.exists(self.path + "/data/imgs"):
             os.makedirs(self.path + "/data/imgs")
-        
+
         # initialize the node
         rospy.init_node(
             'thymio_controller' + str(ThymioController.count)  # name of the node
@@ -64,13 +65,6 @@ class ThymioController:
             Twist,  # message type
             queue_size=10  # queue size
         )
-
-        # create pose subscriber
-        # self.pose_subscriber = rospy.Subscriber(
-        #     self.name + '/odom',  # name of the topic
-        #     Odometry,  # message type
-        #     self.log_odometry  # function that hanldes incoming messages
-        # )
 
         self.prox_center_sub = rospy.Subscriber(
             self.name + '/proximity/left',  # name of the topic
@@ -114,17 +108,17 @@ class ThymioController:
         )
 
         self.prox_down_left = rospy.Subscriber(
-        	self.name + '/ground/left',
-        	Range,
-        	self.sense_ground,
-        	"left"
+            self.name + '/ground/left',
+            Range,
+            self.sense_ground,
+            "left"
         )
 
         self.prox_down_left = rospy.Subscriber(
-        	self.name + '/ground/right',
-        	Range,
-        	self.sense_ground,
-        	"right"
+            self.name + '/ground/right',
+            Range,
+            self.sense_ground,
+            "right"
         )
 
         # tell ros to call stop when the program is terminated
@@ -139,47 +133,24 @@ class ThymioController:
         # set node update frequency in Hz
         self.rate = rospy.Rate(10)
 
-    def human_readable_pose2d(self, pose):
-        """Converts pose message to a human readable pose tuple."""
-
-        # create a quaternion from the pose
-        quaternion = (
-            pose.orientation.x,
-            pose.orientation.y,
-            pose.orientation.z,
-            pose.orientation.w
-        )
-
-        # convert quaternion rotation to euler rotation
-        roll, pitch, yaw = euler_from_quaternion(quaternion)
-
-        result = (
-            pose.position.x,  # x position
-            pose.position.y,  # y position
-            yaw  # theta angle
-        )
-
-        return result
-
     def image_callback(self, msg):
 
         milsec = time.time() - self.start
 
         if milsec > 4:
-	        # Convert your ROS Image message to OpenCV2
-	    	cv2_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+            # Convert your ROS Image message to OpenCV2
+            cv2_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
 
-	        # Save your OpenCV2 image as a jpeg
-	       	cv2.imwrite(self.path + "/data/imgs/{}.jpeg".format(self.image_count), cv2_img)
-	        if os.path.isfile('data/sensor_data.npy'):
-	            data = np.load("data/sensor_data.npy",allow_pickle=True)
-	            data = np.append(data, self.ranges)
-	        else:
-	            data = self.ranges
+            # Save your OpenCV2 image as a jpeg
+            cv2.imwrite(self.path + "/data/imgs/{}.jpeg".format(self.image_count), cv2_img)
 
-	        np.save("data/sensor_data.npy", data)
-	        self.start = time.time()
-	        self.image_count += 1
+            if self.data is not None:
+                self.data = np.append(self.data, self.ranges)
+            else:
+                self.data = self.ranges
+
+            self.start = time.time()
+            self.image_count += 1
 
     def sense_prox(self, data, topic):
         """Updates robot pose and velocities, and logs pose to console."""
@@ -197,37 +168,20 @@ class ThymioController:
                 self.velocity_publisher.publish(velocity)
 
     def sense_ground(self, data, topic):
-    	sensor_range = data.range
-    	self.ranges[topic] = sensor_range
-    	# implement a moving average compared to a hard thershold?
-    	if (sensor_range > 0.15) and (self.status == ThymioController.FORWARD):
+        sensor_range = data.range
+        self.ranges[topic] = sensor_range
+        # implement a moving average compared to a hard thershold?
+        if (sensor_range > 0.15) and (self.status == ThymioController.FORWARD):
 
             self.status = ThymioController.BACKING_UP
             velocity = self.get_control(0, 0)
             self.velocity_publisher.publish(velocity)
 
-	       # store the pitfall flag with the identifier number of the previous image
-            if os.path.isfile('data/pitfall_flags.npy'):
-                flags = np.load("data/pitfall_flags.npy", allow_pickle=True)
-                flags = np.append(flags, self.image_count - 1)
+            # store the pitfall flag with the identifier number of the previous image
+            if self.flags is not None:
+                self.flags = np.append(np.flags, self.image_count - 1)
             else:
-                flags = self.image_count - 1
-
-	        np.save("data/pitfall_flags.npy", flags)
-
-    def log_odometry(self, data):
-
-        """Updates robot pose and velocities, and logs pose to console."""
-        self.pose = data.pose.pose
-        self.velocity = data.twist.twist
-
-        printable_pose = self.human_readable_pose2d(self.pose)
-
-        # log robot's pose
-        rospy.loginfo_throttle(
-            period=1,  # log every 10 seconds
-            msg=self.name + ' (%.3f, %.3f, %.3f) ' % printable_pose  # message
-        )
+                self.flags = [self.image_count - 1]
 
     def get_control(self, vel, ang):
         return Twist(
@@ -243,16 +197,6 @@ class ThymioController:
             )
         )
 
-    def get_angular_velocity(self, dif, status):
-        if np.isclose(0, dif, atol=0.001):
-            velocity = self.get_control(0, 0)
-            self.status = status
-        elif dif > 0:
-            velocity = self.get_control(0, self.angular_speed)
-        else:
-            velocity = self.get_control(0, -self.angular_speed)
-
-        return velocity
 
     def run(self):
         """Controls the Thymio."""
@@ -314,8 +258,7 @@ class ThymioController:
                     current_distance = backup_speed * (t1 - t0)
                 self.status = ThymioController.ROTATING_ORTHOGONAL
 
-            elif self.status == ThymioController.DONE:
-                self.velocity_publisher.publish(self.get_control(0, self.angular_speed))
+
             # sleep until next step
             self.rate.sleep()
 
@@ -335,4 +278,6 @@ if __name__ == '__main__':
     try:
         controller.run()
     except rospy.ROSInterruptException as e:
+        np.save(controller.path + "/data/sensor_data.npy", controller.data)
+        np.save(controller.path + "/data/pitfall_flags.npy", controller.flags)
         pass
