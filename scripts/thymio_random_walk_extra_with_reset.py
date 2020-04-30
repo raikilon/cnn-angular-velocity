@@ -49,7 +49,8 @@ class ThymioController:
         self.min_range = 0.05
         self.step = (self.max_range - self.min_range) / 3
         self.flagged_point = self.max_range
-        self.current_post = None
+        self.current_pose = [None, None, None, None, None]
+        self.pos_count = 0
 
         if not os.path.exists(self.path + "/data"):
             os.makedirs(self.path + "/data")
@@ -154,14 +155,32 @@ class ThymioController:
 
         if milsec > 1:
             if self.status == ThymioController.FORWARD:
-                # Convert your ROS Image message to OpenCV2
-                cv2_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
-                # Save your OpenCV2 image as a jpeg
-                cv2.imwrite(self.path + "/data/imgs/{}.jpeg".format(self.image_count), cv2_img)
+                pose = self.model_state(self.name[1:], "").pose
+                print(pose.position.z)
+                if pose.position.z < -0.0001:
+                    self.status = ThymioController.RESET
+                    velocity = self.get_control(0, 0)
+                    self.velocity_publisher.publish(velocity)
 
-                self.current_post = self.model_state(self.name[1:], "").pose
-                self.start = time.time()
-                self.image_count += 1
+                    # store the pitfall flag with the identifier number of the previous image
+                    if self.flags is not None:
+                        self.flags = np.append(self.flags, self.image_count - 1)
+                    else:
+                        self.flags = [self.image_count - 1]
+
+                else:
+                    # Convert your ROS Image message to OpenCV2
+                    cv2_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+                    # Save your OpenCV2 image as a jpeg
+                    cv2.imwrite(self.path + "/data/imgs/{}.jpeg".format(self.image_count), cv2_img)
+                    self.current_pose[self.pos_count] = pose
+                    self.pos_count += 1
+                    # keep history of 5 last poses
+                    if self.pos_count == 5:
+                        self.pos_count = 0
+                    self.start = time.time()
+                    self.image_count += 1
+
 
     def sense_prox(self, data, topic):
         """Updates robot pose and velocities, and logs pose to console."""
@@ -198,23 +217,15 @@ class ThymioController:
     def sense_ground(self, data, topic):
         sensor_range = data.range
         self.ranges[topic] = sensor_range
+
         # implement a moving average compared to a hard thershold?
-        if (sensor_range > 0.11) and (self.status == ThymioController.FORWARD):
+        if self.status == ThymioController.FORWARD:
 
             if topic == "ground_right":
                 self.pitfall_side = 1
             else:
                 self.pitfall_side = -1
 
-            self.status = ThymioController.RESET
-            velocity = self.get_control(0, 0)
-            self.velocity_publisher.publish(velocity)
-
-            # store the pitfall flag with the identifier number of the previous image
-            if self.flags is not None:
-                self.flags = np.append(self.flags, self.image_count - 1)
-            else:
-                self.flags = [self.image_count - 1]
 
     def get_control(self, vel, ang):
         return Twist(
@@ -281,7 +292,7 @@ class ThymioController:
             elif self.status == ThymioController.RESET:
                 state_msg = ModelState()
                 state_msg.model_name = self.name[1:]
-                state_msg.pose = self.current_post
+                state_msg.pose = self.current_pose[self.pos_count]
                 rospy.wait_for_service('/gazebo/set_model_state')
                 try:
                     set_state = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
@@ -292,7 +303,7 @@ class ThymioController:
 
                 t0 = rospy.Time.now().to_sec()
                 current_angle = 0
-                angle = np.deg2rad(90 + np.random.randint(5, 45))
+                angle = np.deg2rad(180 + np.random.randint(-20, 20))
                 while current_angle < angle:
                     self.velocity_publisher.publish(self.get_control(0, self.angular_speed * self.pitfall_side))
                     t1 = rospy.Time.now().to_sec()
