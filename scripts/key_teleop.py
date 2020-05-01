@@ -12,22 +12,22 @@ import math
 
 import rospy
 from geometry_msgs.msg import Twist
-import numpy as np
-# ROS Image message
-from sensor_msgs.msg import Image
-# ROS Image message -> OpenCV2 image converter
-from cv_bridge import CvBridge
-# OpenCV2 for saving an image
-import cv2
-import time
-import torch
-import torch.nn.parallel
-import torch.nn.functional
-import torch.optim
-import torch.utils.data
-from torchvision import transforms
-import PIL.Image as PILImage
-from model.cnn_regressor import CNNRegressor
+# import numpy as np
+# # ROS Image message
+# from sensor_msgs.msg import Image
+# # ROS Image message -> OpenCV2 image converter
+# from cv_bridge import CvBridge
+# # OpenCV2 for saving an image
+# import cv2
+# import time
+# import torch
+# import torch.nn.parallel
+# import torch.nn.functional
+# import torch.optim
+# import torch.utils.data
+# from torchvision import transforms
+# import PIL.Image as PILImage
+# from model.cnn_regressor import CNNRegressor
 
 class Velocity(object):
 
@@ -209,48 +209,48 @@ class SimpleKeyTeleop():
         self._angular = 0
         self._linear = 0
 
-        ### begin: fields for automatic obstacle bypass ###
-        self.status = SimpleKeyTeleop.FORWARD
-        self.start = time.time()
-        # Instantiate CvBridge
-        self.bridge = CvBridge()
+        # ### begin: fields for automatic obstacle bypass ###
+        # self.status = SimpleKeyTeleop.FORWARD
+        # self.start = time.time()
+        # # Instantiate CvBridge
+        # self.bridge = CvBridge()
 
-        # Init CNN model
-        self.model = CNNRegressor(2, False)
-        checkpoint = torch.load("best_model.pth.tar", map_location='cpu')
-        self.model.load_state_dict(checkpoint['state_dict'])
-        self.model.eval()
-        del checkpoint
-        torch.cuda.empty_cache()
+        # # Init CNN model
+        # self.model = CNNRegressor(2, False)
+        # checkpoint = torch.load("best_model.pth.tar", map_location='cpu')
+        # self.model.load_state_dict(checkpoint['state_dict'])
+        # self.model.eval()
+        # del checkpoint
+        # torch.cuda.empty_cache()
 
-        self.transform = transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
+        # self.transform = transforms.Compose([
+        #     transforms.Resize(256),
+        #     transforms.CenterCrop(224),
+        #     transforms.ToTensor(),
+        #     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        # ])
 
-        # initialize the node
-        rospy.init_node(
-            'thymio_controller' + str(SimpleKeyTeleop.count)  # name of the node
-        )
+        # # initialize the node
+        # rospy.init_node(
+        #     'thymio_controller' + str(SimpleKeyTeleop.count)  # name of the node
+        # )
 
-        SimpleKeyTeleop.count = SimpleKeyTeleop.count + 1
-        self.name = rospy.get_param('~robot_name')
+        # SimpleKeyTeleop.count = SimpleKeyTeleop.count + 1
+        # self.name = rospy.get_param('~robot_name')
 
-        # log robot name to console
-        rospy.loginfo('Controlling %s' % self.name)
+        # # log robot name to console
+        # rospy.loginfo('Controlling %s' % self.name)
 
-        self.image = rospy.Subscriber(
-            self.name + '/camera/image_raw',  # name of the topic
-            Image,  # message type
-            self.image_callback
-        )
+        # self.image = rospy.Subscriber(
+        #     self.name + '/camera/image_raw',  # name of the topic
+        #     Image,  # message type
+        #     self.image_callback
+        # )
 
-        # tell ros to call stop when the program is terminated
-        rospy.on_shutdown(self.stop)
+        # # tell ros to call stop when the program is terminated
+        # rospy.on_shutdown(self.stop)
 
-        ## end: fields for automatic obstacle bypass ###
+        # ## end: fields for automatic obstacle bypass ###
 
     movement_bindings = {
         curses.KEY_UP:    ( 1,  0),
@@ -259,52 +259,52 @@ class SimpleKeyTeleop():
         curses.KEY_RIGHT: ( 0, -1),
         }
 
-    def image_callback(self, msg):
+    # def image_callback(self, msg):
 
-        milsec = time.time() - self.start
+    #     milsec = time.time() - self.start
 
-        if milsec > 1:
-            # Convert your ROS Image message to OpenCV2
-            cv2_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
-            img = cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB)
-            im_pil = PILImage.fromarray(img)
-            image = self.transform(im_pil)
-            with torch.no_grad():
-                output = self.model(image.unsqueeze_(0))
-                output = output.detach().numpy()[0]
-                if np.max(output) > 0.1:
-                    # Think that there is a centered object
-                    if output[1] > abs(output[0]):
-                        print("Center")
-                        # get best direction to go away from centered object
-                        sign = - np.sign(output[0])
-                        self._angular = sign * output[1]
-                    else:
-                        self._angular = - output[0]
-                        if output[0] > 0:
-                            print("LEFT")
-                        else:
-                            print("RIGHT")
+    #     if milsec > 1:
+    #         # Convert your ROS Image message to OpenCV2
+    #         cv2_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+    #         img = cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB)
+    #         im_pil = PILImage.fromarray(img)
+    #         image = self.transform(im_pil)
+    #         with torch.no_grad():
+    #             output = self.model(image.unsqueeze_(0))
+    #             output = output.detach().numpy()[0]
+    #             if np.max(output) > 0.1:
+    #                 # Think that there is a centered object
+    #                 if output[1] > abs(output[0]):
+    #                     print("Center")
+    #                     # get best direction to go away from centered object
+    #                     sign = - np.sign(output[0])
+    #                     self._angular = sign * output[1]
+    #                 else:
+    #                     self._angular = - output[0]
+    #                     if output[0] > 0:
+    #                         print("LEFT")
+    #                     else:
+    #                         print("RIGHT")
 
-            self.start = time.time()
+    #         self.start = time.time()
 
-            velocity = self.get_control(self._linear, self._angular)
+    #         velocity = self.get_control(self._linear, self._angular)
 
-            self._pub_cmd.publish(velocity)
+    #         self._pub_cmd.publish(velocity)
 
-    def get_control(self, vel, ang):
-        return Twist(
-            linear=Vector3(
-                vel,  # moves forward .2 m/s
-                .0,
-                .0,
-            ),
-            angular=Vector3(
-                .0,
-                .0,
-                ang
-            )
-        )
+    # def get_control(self, vel, ang):
+    #     return Twist(
+    #         linear=Vector3(
+    #             vel,  # moves forward .2 m/s
+    #             .0,
+    #             .0,
+    #         ),
+    #         angular=Vector3(
+    #             .0,
+    #             .0,
+    #             ang
+    #         )
+    #     )
 
     def run(self):
         rate = rospy.Rate(self._hz)

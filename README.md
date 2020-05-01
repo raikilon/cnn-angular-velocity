@@ -40,6 +40,17 @@ and then execute the `avoid_obstacle.launch` file as follow:
 ```
 roslaunch final_project avoid_obstacle.launch
 ```
+
+## Test Teleoperation with automatic object/pitfall protection
+
+To test the model please launch Gazebo with the wanted world 
+```
+roslaunch final_project thymio_gazebo_bringup.launch name:=thymio10 world:=pitfalls
+```
+and then execute the `avoid_obstacle.launch` file as follow:
+```
+rosrun final_project key_teleop.py key_vel:=/thymio10/cmd_vel
+```
 ## Contacts 
 
 If you have any doubts please contact us at noli.manzoni@usi.ch or micheal.denzler.usi.ch
