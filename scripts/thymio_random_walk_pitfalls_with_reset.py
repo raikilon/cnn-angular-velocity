@@ -263,7 +263,8 @@ class ThymioController:
 
                 t0 = rospy.Time.now().to_sec()
                 current_angle = 0
-                angle = np.deg2rad(180 + -30 if np.random.random() < 0.5 else +30)
+                angle = -30 if np.random.random() < 0.5 else +30
+                angle = np.deg2rad(180 + angle)
                 while current_angle < angle:
                     self.velocity_publisher.publish(self.get_control(0, self.angular_speed * self.pitfall_side))
                     t1 = rospy.Time.now().to_sec()
