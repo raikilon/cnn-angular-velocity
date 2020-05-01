@@ -29,7 +29,7 @@
     <arg name="camera_is_fixed" default="false"/>
     <arg name="camera_pitch" default="0"/>
 
-    <arg name="proximity_max_range" default="2"/>
+    <arg name="proximity_max_range" default="0"/>
     <arg name="proximity_resolution" default="0.005"/>
     <arg name="proximity_fov" default="0.3"/>
 
@@ -50,7 +50,7 @@
     <arg name="camera_is_fixed" default="false"/>
     <arg name="camera_pitch" default="0"/>
 
-    <arg name="proximity_max_range" default="2"/>
+    <arg name="proximity_max_range" default="0"/>
     <arg name="proximity_resolution" default="0.005"/>
     <arg name="proximity_fov" default="0.3"/>
 
@@ -71,7 +71,7 @@
     <arg name="camera_is_fixed" default="false"/>
     <arg name="camera_pitch" default="0"/>
 
-    <arg name="proximity_max_range" default="2"/>
+    <arg name="proximity_max_range" default="0"/>
     <arg name="proximity_resolution" default="0.005"/>
     <arg name="proximity_fov" default="0.3"/>
 
@@ -92,7 +92,7 @@
     <arg name="camera_is_fixed" default="false"/>
     <arg name="camera_pitch" default="0"/>
 
-    <arg name="proximity_max_range" default="2"/>
+    <arg name="proximity_max_range" default="0"/>
     <arg name="proximity_resolution" default="0.005"/>
     <arg name="proximity_fov" default="0.3"/>
 
@@ -113,7 +113,7 @@
     <arg name="camera_is_fixed" default="false"/>
     <arg name="camera_pitch" default="0"/>
 
-    <arg name="proximity_max_range" default="2"/>
+    <arg name="proximity_max_range" default="0"/>
     <arg name="proximity_resolution" default="0.005"/>
     <arg name="proximity_fov" default="0.3"/>
 
@@ -134,7 +134,7 @@
     <arg name="camera_is_fixed" default="false"/>
     <arg name="camera_pitch" default="0"/>
 
-    <arg name="proximity_max_range" default="2"/>
+    <arg name="proximity_max_range" default="0"/>
     <arg name="proximity_resolution" default="0.005"/>
     <arg name="proximity_fov" default="0.3"/>
 

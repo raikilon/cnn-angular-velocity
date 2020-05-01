@@ -108,9 +108,7 @@ class ThymioController:
                 # Think that there is a centered object
                 if output[1] > abs(output[0]):
                     print("Center")
-                    # get best direction to go away from centered object
-                    sign = - np.sign(output[0])
-                    self.angular_speed = sign * output[1]
+                    self.angular_speed = output[1]
                 else:
                     self.angular_speed = - output[0]
                     if output[0] > 0:
