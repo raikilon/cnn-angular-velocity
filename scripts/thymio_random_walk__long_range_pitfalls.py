@@ -42,11 +42,6 @@ class ThymioController:
         self.data = None
         self.flags = None
         self.pitfall_side = 1
-        self.prox_flags = None
-        self.max_range = 0.12
-        self.min_range = 0.05
-        self.step = (self.max_range - self.min_range) / 3
-        self.flagged_point = self.max_range
 
         if not os.path.exists(self.path + "/data"):
             os.makedirs(self.path + "/data")
@@ -117,14 +112,14 @@ class ThymioController:
             self.name + '/ground/left',
             Range,
             self.sense_ground,
-            "left"
+            "ground_left"
         )
 
         self.prox_down_left = rospy.Subscriber(
             self.name + '/ground/right',
             Range,
             self.sense_ground,
-            "right"
+            "ground_right"
         )
 
         # tell ros to call stop when the program is terminated
@@ -147,8 +142,14 @@ class ThymioController:
             if self.status == ThymioController.FORWARD:
                 # Convert your ROS Image message to OpenCV2
                 cv2_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+
                 # Save your OpenCV2 image as a jpeg
                 cv2.imwrite(self.path + "/data/imgs/{}.jpeg".format(self.image_count), cv2_img)
+
+                if self.data is not None:
+                    self.data = np.append(self.data, self.ranges.copy())
+                else:
+                    self.data = self.ranges.copy()
 
                 self.start = time.time()
                 self.image_count += 1
@@ -157,8 +158,7 @@ class ThymioController:
         """Updates robot pose and velocities, and logs pose to console."""
         sensor_range = data.range
         self.ranges[topic] = sensor_range
-
-        if sensor_range < self.min_range:
+        if sensor_range < 0.2:
             if self.status == ThymioController.FORWARD:
                 dif = self.ranges["left"] - self.ranges["right"]
 
@@ -168,22 +168,6 @@ class ThymioController:
                     self.status = ThymioController.ROTATING
                 velocity = self.get_control(0, 0)
                 self.velocity_publisher.publish(velocity)
-
-                if self.prox_flags is not None:
-                    self.prox_flags = np.append(self.prox_flags, self.image_count - 1)
-                else:
-                    self.prox_flags = [self.image_count - 1]
-
-                self.flagged_point = self.max_range
-
-        if sensor_range < self.flagged_point:
-            if self.status == ThymioController.FORWARD:
-                if self.data is not None:
-                    self.data = np.append(self.data, self.ranges.copy())
-                else:
-                    self.data = self.ranges.copy()
-
-                self.flagged_point = self.flagged_point - self.step
 
     def sense_ground(self, data, topic):
         sensor_range = data.range
@@ -220,6 +204,7 @@ class ThymioController:
             )
         )
 
+
     def run(self):
         """Controls the Thymio."""
 
@@ -232,7 +217,7 @@ class ThymioController:
                 self.velocity_publisher.publish(velocity)
             elif self.status == ThymioController.ROTATING:
                 dif = self.ranges["left"] - self.ranges["right"]
-
+                
                 if np.isclose(0, dif, atol=0.005):
                     self.velocity_publisher.publish(self.get_control(0, 0))
                     t0 = rospy.Time.now().to_sec()
@@ -269,6 +254,7 @@ class ThymioController:
                 self.status = ThymioController.FORWARD
 
             elif self.status == ThymioController.BACKING_UP:
+
                 self.velocity_publisher.publish(self.get_control(0, 0))
                 t0 = rospy.Time.now().to_sec()
                 current_distance = 0
@@ -281,7 +267,7 @@ class ThymioController:
                 self.status = ThymioController.ROTATING_PITFALL
 
             elif self.status == ThymioController.ROTATING_PITFALL:
-                print("in ROTATING_PITFALL")
+
                 self.velocity_publisher.publish(self.get_control(0, 0))
                 t0 = rospy.Time.now().to_sec()
                 current_angle = 0
@@ -314,5 +300,4 @@ if __name__ == '__main__':
     except rospy.ROSInterruptException as e:
         np.save(controller.path + "/data/sensor_data.npy", controller.data)
         np.save(controller.path + "/data/pitfall_flags.npy", controller.flags)
-        np.save(controller.path + "/data/object_flags.npy", controller.prox_flags)
         pass

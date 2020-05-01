@@ -47,8 +47,6 @@ class ThymioController:
         self.prox_flags = None
         self.max_range = 0.12
         self.min_range = 0.05
-        self.step = (self.max_range - self.min_range) / 3
-        self.flagged_point = self.max_range
         self.current_pose = [None, None, None, None, None]
         self.pos_count = 0
 
@@ -123,20 +121,6 @@ class ThymioController:
             self.image_callback
         )
 
-        self.prox_down_left = rospy.Subscriber(
-            self.name + '/ground/left',
-            Range,
-            self.sense_ground,
-            "left"
-        )
-
-        self.prox_down_left = rospy.Subscriber(
-            self.name + '/ground/right',
-            Range,
-            self.sense_ground,
-            "right"
-        )
-
         # tell ros to call stop when the program is terminated
         rospy.on_shutdown(self.stop)
 
@@ -156,7 +140,6 @@ class ThymioController:
         if milsec > 1:
             if self.status == ThymioController.FORWARD:
                 pose = self.model_state(self.name[1:], "").pose
-                print(pose.position.z)
                 if pose.position.z < -0.0001:
                     self.status = ThymioController.RESET
                     velocity = self.get_control(0, 0)
@@ -181,7 +164,6 @@ class ThymioController:
                     self.start = time.time()
                     self.image_count += 1
 
-
     def sense_prox(self, data, topic):
         """Updates robot pose and velocities, and logs pose to console."""
         sensor_range = data.range
@@ -198,34 +180,15 @@ class ThymioController:
                 velocity = self.get_control(0, 0)
                 self.velocity_publisher.publish(velocity)
 
-                if self.prox_flags is not None:
-                    self.prox_flags = np.append(self.prox_flags, self.image_count - 1)
-                else:
-                    self.prox_flags = [self.image_count - 1]
-
-                self.flagged_point = self.max_range
-
-        if sensor_range < self.flagged_point:
-            if self.status == ThymioController.FORWARD:
                 if self.data is not None:
                     self.data = np.append(self.data, self.ranges.copy())
                 else:
                     self.data = self.ranges.copy()
 
-                self.flagged_point = self.flagged_point - self.step
-
-    def sense_ground(self, data, topic):
-        sensor_range = data.range
-        self.ranges[topic] = sensor_range
-
-        # implement a moving average compared to a hard thershold?
-        if self.status == ThymioController.FORWARD:
-
-            if topic == "ground_right":
-                self.pitfall_side = 1
-            else:
-                self.pitfall_side = -1
-
+                if self.prox_flags is not None:
+                    self.prox_flags = np.append(self.prox_flags, self.image_count - 1)
+                else:
+                    self.prox_flags = [self.image_count - 1]
 
     def get_control(self, vel, ang):
         return Twist(
@@ -294,16 +257,13 @@ class ThymioController:
                 state_msg.model_name = self.name[1:]
                 state_msg.pose = self.current_pose[self.pos_count]
                 rospy.wait_for_service('/gazebo/set_model_state')
-                try:
-                    set_state = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
-                    resp = set_state(state_msg)
-                except rospy.ServiceException, e:
 
-                    print "Service call failed: %s" % e
+                set_state = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
+                resp = set_state(state_msg)
 
                 t0 = rospy.Time.now().to_sec()
                 current_angle = 0
-                angle = np.deg2rad(180 + np.random.randint(-20, 20))
+                angle = np.deg2rad(180 + -30 if np.random.random() < 0.5 else +30)
                 while current_angle < angle:
                     self.velocity_publisher.publish(self.get_control(0, self.angular_speed * self.pitfall_side))
                     t1 = rospy.Time.now().to_sec()

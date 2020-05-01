@@ -16,7 +16,7 @@ import os
 from datetime import datetime
 from cnn_regressor import CNNRegressor
 from obstacle_position_dataset2 import ObstaclePositionDataset
-
+import uuid
 parser = argparse.ArgumentParser(description='PyTorch Rotation Training')
 parser.add_argument('data', metavar='PATH', help='path to dataset')
 parser.add_argument('--epochs', default=1000, type=int,
@@ -83,9 +83,9 @@ def main():
     # Track model in wandb
     wandb.init(project="RoboticsProject", config=args)
 
-    wandb.watch(model)
+    # wandb.watch(model)
 
-    args.name = 'model_best_{}.pth.tar'.format(datetime.now().strftime("%d-%b-%Y (%H:%M:%S)"))
+    args.name = 'model_best_{}.pth.tar'.format(uuid.uuid1())
 
     train(model, criterion, optimizer, train_loader, val_loader, args)
 
