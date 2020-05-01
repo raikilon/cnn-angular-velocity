@@ -136,11 +136,12 @@ class ThymioController:
     def image_callback(self, msg):
 
         milsec = time.time() - self.start
-
-        if milsec > 1:
+        if milsec > 0.5:
             if self.status == ThymioController.FORWARD:
                 pose = self.model_state(self.name[1:], "").pose
+                print(pose.position.z)
                 if pose.position.z < -0.0001:
+                    print("Reset")
                     self.status = ThymioController.RESET
                     velocity = self.get_control(0, 0)
                     self.velocity_publisher.publish(velocity)
@@ -150,8 +151,8 @@ class ThymioController:
                         self.flags = np.append(self.flags, self.image_count - 1)
                     else:
                         self.flags = [self.image_count - 1]
+                if milsec > 1:
 
-                else:
                     # Convert your ROS Image message to OpenCV2
                     cv2_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
                     # Save your OpenCV2 image as a jpeg
@@ -270,6 +271,7 @@ class ThymioController:
                     t1 = rospy.Time.now().to_sec()
                     current_angle = self.angular_speed * (t1 - t0)
 
+                print("reset done")
                 self.status = ThymioController.FORWARD
 
             # sleep until next step

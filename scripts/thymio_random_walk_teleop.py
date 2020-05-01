@@ -102,6 +102,14 @@ class ThymioController:
             # sleep until next step
             self.rate.sleep()
 
+    def stop(self):
+        """Stops the robot."""
+
+        self.velocity_publisher.publish(
+            Twist()  # set velocities to 0
+        )
+
+        self.rate.sleep()
 
 if __name__ == '__main__':
     controller = ThymioController()
