@@ -106,7 +106,7 @@ class KeyTeleop():
 
         self._num_steps = rospy.get_param('~turbo/steps', 1)
 
-        forward_min = rospy.get_param('~turbo/linear_forward_min', 0.3)
+        forward_min = rospy.get_param('~turbo/linear_forward_min', 0.5)
         forward_max = rospy.get_param('~turbo/linear_forward_max', 1.5)
         self._forward = Velocity(forward_min, forward_max, self._num_steps)
 
@@ -114,9 +114,12 @@ class KeyTeleop():
         backward_max = rospy.get_param('~turbo/linear_backward_max', 1.0)
         self._backward = Velocity(backward_min, backward_max, self._num_steps)
 
-        angular_min = rospy.get_param('~turbo/angular_min', 0.5)
-        angular_max = rospy.get_param('~turbo/angular_max', 1.2)
+        angular_min = rospy.get_param('~turbo/angular_min', 0.8)
+        angular_max = rospy.get_param('~turbo/angular_max', 3.0)
         self._rotation = Velocity(angular_min, angular_max, self._num_steps)
+
+        self.message = 'Use arrow keys to move, space to stop, q to exit.'
+        self.prev_message = self.message
 
         ### begin: fields for automatic obstacle bypass ###
         self.status = SimpleKeyTeleop.FORWARD
@@ -127,7 +130,7 @@ class KeyTeleop():
 
         # Init CNN model
         self.model = CNNRegressor(2, False)
-        checkpoint = torch.load("best_model.pth.tar", map_location='cpu')
+        checkpoint = torch.load("pitfalls.tar", map_location='cpu')
         self.model.load_state_dict(checkpoint['state_dict'])
         self.model.eval()
         del checkpoint
@@ -161,7 +164,7 @@ class KeyTeleop():
 
         milsec = time.time() - self.start
 
-        if milsec > 1:
+        if milsec > 0.4:
             # Convert your ROS Image message to OpenCV2
             cv2_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
             img = cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB)
@@ -170,18 +173,21 @@ class KeyTeleop():
             with torch.no_grad():
                 output = self.model(image.unsqueeze_(0))
                 output = output.detach().numpy()[0]
-                if self.assistant_step < 2:
-                    # print("within timecheck" + str(self.assistant_step))
-                    self.assistant_steer(output)
-                    self.assistant_step += 1
-                elif self.assistant_step == 2:
-                    # print("end timecheck" + str(self.assistant_step))
-                    self._angular = 0
-                    self.assistant_step += 1
-                elif np.max(output) > 0.4:
-                    # print("hit output ovewr 0.4")
+                if np.max(abs(output)) > 0.5:
+                    if self.assistant_step != 0:
+                        self.prev_linear = self._linear
+                        self.prev_message = self.message
+                        self.message = 'Collision prevention assistant taking control'
+                    # print("hit output ovewr 0.6")
                     self.assistant_steer(output)
                     self.assistant_step = 0
+
+                elif self.assistant_step == 0:
+                    # print("end timecheck" + str(self.assistant_step))
+                    self._angular = 0
+                    self._linear = self.prev_linear
+                    self.message = self.prev_message
+                    self.assistant_step = 1
 
             self.start = time.time()
 
@@ -191,25 +197,25 @@ class KeyTeleop():
 
     def assistant_steer(self, output):
         if output[1] > abs(output[0]):
-            print("Center")
-            # get best direction to go away from centered object
-            sign = - np.sign(output[0])
-            angular = self._angular + sign * output[1]
+            # print("Center")
+            angular = self._angular + output[1]
             if abs(angular) <= self._num_steps:
                 self._angular = angular
+                self._linear = 0
         else:
             angular = self._angular - output[0]
             if abs(angular) <= self._num_steps:
                 self._angular = angular
             # if output[0] > 0:
-                print("LEFT")
+                # print("LEFT")
             # else:
-                print("RIGHT")
+                # print("RIGHT")
 
 
     def run(self):
         self._linear = 0
         self._angular = 0
+        self.prev_linear = self._linear
 
         rate = rospy.Rate(self._hz)
         while True:
@@ -271,10 +277,10 @@ class KeyTeleop():
         return True
 
     def _publish(self):
-        # self._interface.clear()
-        # self._interface.write_line(2, 'Linear: %d, Angular: %d' % (self._linear, self._angular))
-        # self._interface.write_line(5, 'Use arrow keys to move, space to stop, q to exit.')
-        # self._interface.refresh()
+        self._interface.clear()
+        self._interface.write_line(2, 'Linear: %d, Angular: %d' % (self._linear, self._angular))
+        self._interface.write_line(5, self.message)
+        self._interface.refresh()
 
         twist = self._get_twist(self._linear, self._angular)
         self._pub_cmd.publish(twist)
