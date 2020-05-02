@@ -49,7 +49,7 @@ roslaunch final_project thymio_gazebo_bringup.launch name:=thymio10 world:=pitfa
 ```
 and then execute the `avoid_obstacle.launch` file as follow:
 ```
-rosrun final_project key_teleop.py key_vel:=/thymio10/cmd_vel
+roslaunch final_project teleoperate.launch
 ```
 ## Contacts 
 
