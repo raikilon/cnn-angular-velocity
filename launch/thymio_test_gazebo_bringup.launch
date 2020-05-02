@@ -15,7 +15,7 @@
   </include>
 
   <include file="$(find thymioid_description)/launch/gazebo_bringup.launch">
-    <arg name="name" value="Thymio11"/>
+    <arg name="name" value="Thymio12"/>
     <arg name="pose" value="-x 0 -y 0 -z 0"/>
     <arg name="odom_max_rate" default="20.0"/>
 
@@ -29,14 +29,14 @@
     <arg name="camera_is_fixed" default="false"/>
     <arg name="camera_pitch" default="0"/>
 
-    <arg name="proximity_max_range" default="2"/>
+    <arg name="proximity_max_range" default="0"/>
     <arg name="proximity_resolution" default="0.005"/>
     <arg name="proximity_fov" default="0.3"/>
 
   </include>
 
   <include file="$(find thymioid_description)/launch/gazebo_bringup.launch">
-    <arg name="name" value="Thymio12"/>
+    <arg name="name" value="Thymio11"/>
     <arg name="pose" value="-x -10 -y -3 -z 0"/>
     <arg name="odom_max_rate" default="20.0"/>
 
@@ -50,14 +50,14 @@
     <arg name="camera_is_fixed" default="false"/>
     <arg name="camera_pitch" default="0"/>
 
-    <arg name="proximity_max_range" default="2"/>
+    <arg name="proximity_max_range" default="0"/>
     <arg name="proximity_resolution" default="0.005"/>
     <arg name="proximity_fov" default="0.3"/>
 
   </include>
 
   <include file="$(find thymioid_description)/launch/gazebo_bringup.launch">
-    <arg name="name" value="Thymio13"/>
+    <arg name="name" value="Thymio16"/>
     <arg name="pose" value="-x -12 -y 8 -z 0"/>
     <arg name="odom_max_rate" default="20.0"/>
 
@@ -71,7 +71,7 @@
     <arg name="camera_is_fixed" default="false"/>
     <arg name="camera_pitch" default="0"/>
 
-    <arg name="proximity_max_range" default="2"/>
+    <arg name="proximity_max_range" default="0"/>
     <arg name="proximity_resolution" default="0.005"/>
     <arg name="proximity_fov" default="0.3"/>
 
@@ -92,14 +92,14 @@
     <arg name="camera_is_fixed" default="false"/>
     <arg name="camera_pitch" default="0"/>
 
-    <arg name="proximity_max_range" default="2"/>
+    <arg name="proximity_max_range" default="0"/>
     <arg name="proximity_resolution" default="0.005"/>
     <arg name="proximity_fov" default="0.3"/>
 
   </include>
 
   <include file="$(find thymioid_description)/launch/gazebo_bringup.launch">
-    <arg name="name" value="Thymio15"/>
+    <arg name="name" value="Thymio13"/>
     <arg name="pose" value="-x 11 -y 1 -z 0"/>
     <arg name="odom_max_rate" default="20.0"/>
 
@@ -113,14 +113,14 @@
     <arg name="camera_is_fixed" default="false"/>
     <arg name="camera_pitch" default="0"/>
 
-    <arg name="proximity_max_range" default="2"/>
+    <arg name="proximity_max_range" default="0"/>
     <arg name="proximity_resolution" default="0.005"/>
     <arg name="proximity_fov" default="0.3"/>
 
   </include>
 
   <include file="$(find thymioid_description)/launch/gazebo_bringup.launch">
-    <arg name="name" value="Thymio16"/>
+    <arg name="name" value="Thymio15"/>
     <arg name="pose" value="-x 11 -y -6 -z 0"/>
     <arg name="odom_max_rate" default="20.0"/>
 
@@ -134,7 +134,7 @@
     <arg name="camera_is_fixed" default="false"/>
     <arg name="camera_pitch" default="0"/>
 
-    <arg name="proximity_max_range" default="2"/>
+    <arg name="proximity_max_range" default="0"/>
     <arg name="proximity_resolution" default="0.005"/>
     <arg name="proximity_fov" default="0.3"/>
 

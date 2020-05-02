@@ -24,35 +24,37 @@ class ObstaclePositionDataset(Dataset):
         sensor_range = 0.12
 
         ####### Begin: Implementation of extra part, not relying on artificial simulation data
-        self.targets = np.zeros((3, len(self.images)))
+        self.targets = np.zeros((2, len(self.images)))
 
         # target values for object detection
         for i in range(len(object_flags)):
-            for j in range(0, 3):
-                idx = 3 * i - j
-                center_left = 1 - max((raw_target[idx]["center_left"] - min_distance) / (sensor_range - min_distance),
-                                      0)
-                center_right = 1 - max((raw_target[idx]["center_right"] - min_distance) / (sensor_range - min_distance),
-                                       0)
-                center = 1 - max((raw_target[idx]["center"] - min_distance) / (sensor_range - min_distance), 0)
+            center_left = 1 - max((raw_target[i]["center_left"] - min_distance) / (sensor_range - min_distance),
+                                  0)
+            center_right = 1 - max((raw_target[i]["center_right"] - min_distance) / (sensor_range - min_distance),
+                                   0)
+            center = 1 - max((raw_target[i]["center"] - min_distance) / (sensor_range - min_distance), 0)
 
-                T = np.around(np.dot([center_left, center_right], [1, -1]), decimals=1)
-                C = np.around(center, decimals=1)
-                target = [T, C, 0]
-
-                flag = object_flags[i - j]
-                self.targets[:, flag] = target
+            T = np.around(np.dot([center_left, center_right], [1, -1]), decimals=1)
+            C = np.around(center, decimals=1)
+            target = [T, C]
+            idx = object_flags[i]
+            self.targets[:, idx] = target
+            if idx - 1 >= 0:
+                self.targets[:, idx - 1] = target
+            if idx - 2 >= 0:
+                self.targets[:, idx - 2] = target
+            if idx - 3 >= 0:
+                self.targets[:, idx - 3] = target
+            if idx-4 >= 0:
+                self.targets[:, idx - 4] = target
 
         # target values for pitfall detection
-        step = 1
+
         for img_idx in pitfall_flags:
-            for j in range(0, 3):
-                self.targets[2, img_idx - j] = step
-                step = step - 1/3
+            for j in range(0, 5):
+                self.targets[1, img_idx - j] = 1
 
         ####### End: Implementation of extra part, not relying on artificial simulation data
-
-        # np.intersect1d(np.where(np.array(self.targets)[:, 0] == 0), np.where(np.array(self.targets)[:, 1] == 0))
         self.transform = transforms.Compose([
             transforms.Resize(256),
             transforms.CenterCrop(224),
@@ -67,7 +69,7 @@ class ObstaclePositionDataset(Dataset):
         with open(os.path.join(self.image_dir, self.images[idx]), 'rb') as f:
             img = Image.open(f)
             image = img.convert('RGB')
-        target = np.array(self.targets[idx], dtype=np.float32)
+        target = np.array(self.targets[:,idx], dtype=np.float32)
 
         if self.transform:
             image = self.transform(image)
