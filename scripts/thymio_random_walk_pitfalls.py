@@ -1,35 +1,36 @@
 #!/usr/bin/env python
 # -*- coding:UTF-8 -*-(add)
 
-import rospy
-from nav_msgs.msg import Odometry
-from sensor_msgs.msg import Range
-from geometry_msgs.msg import Pose, Twist, Vector3
-from tf.transformations import euler_from_quaternion
-import numpy as np
-# ROS Image message
-from sensor_msgs.msg import Image
-# ROS Image message -> OpenCV2 image converter
-from cv_bridge import CvBridge, CvBridgeError
-# OpenCV2 for saving an image
-import cv2
 import os.path
 import time
+
+# OpenCV2 for saving an image
+import cv2
+import numpy as np
+import rospy
+# ROS Image message -> OpenCV2 image converter
+from cv_bridge import CvBridge
+from gazebo_msgs.msg import ModelState
+from gazebo_msgs.srv import GetModelState
+from gazebo_msgs.srv import SetModelState
+from geometry_msgs.msg import Pose, Twist, Vector3
+# ROS Image message
+from sensor_msgs.msg import Image
+from sensor_msgs.msg import Range
 
 
 class ThymioController:
     FORWARD = 1
     ROTATING = 2
     ROTATING_ORTHOGONAL = 3
-    BACKING_UP = 4
-    ROTATING_PITFALL = 5
+    RESET = 4
     count = 0
 
     def __init__(self):
         """Initialization."""
         self.ranges = {}
         self.angular_speed = 0.2
-        self.speed = 0.05  # originally was 0.2
+        self.speed = 0.2  # originally was 0.2
         self.sign = 2
         self.min_wall_distance = 0.04
         self.status = ThymioController.FORWARD
@@ -45,8 +46,8 @@ class ThymioController:
         self.prox_flags = None
         self.max_range = 0.12
         self.min_range = 0.05
-        self.step = (self.max_range - self.min_range) / 3
-        self.flagged_point = self.max_range
+        self.current_pose = [None, None, None, None, None]
+        self.pos_count = 0
 
         if not os.path.exists(self.path + "/data"):
             os.makedirs(self.path + "/data")
@@ -64,6 +65,12 @@ class ThymioController:
 
         # log robot name to console
         rospy.loginfo('Controlling %s' % self.name)
+
+        rospy.wait_for_service('/gazebo/get_model_state')
+        self.model_state = rospy.ServiceProxy(
+            'gazebo/get_model_state',  # name of the topic
+            GetModelState
+        )
 
         # create velocity publisher
         self.velocity_publisher = rospy.Publisher(
@@ -113,20 +120,6 @@ class ThymioController:
             self.image_callback
         )
 
-        self.prox_down_left = rospy.Subscriber(
-            self.name + '/ground/left',
-            Range,
-            self.sense_ground,
-            "left"
-        )
-
-        self.prox_down_left = rospy.Subscriber(
-            self.name + '/ground/right',
-            Range,
-            self.sense_ground,
-            "right"
-        )
-
         # tell ros to call stop when the program is terminated
         rospy.on_shutdown(self.stop)
 
@@ -142,16 +135,34 @@ class ThymioController:
     def image_callback(self, msg):
 
         milsec = time.time() - self.start
-
-        if milsec > 4:
+        # check if falling every 0.5 second only if it in forward state
+        if milsec > 0.5:
             if self.status == ThymioController.FORWARD:
-                # Convert your ROS Image message to OpenCV2
-                cv2_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
-                # Save your OpenCV2 image as a jpeg
-                cv2.imwrite(self.path + "/data/imgs/{}.jpeg".format(self.image_count), cv2_img)
+                pose = self.model_state(self.name[1:], "").pose
+                # if falling do reset
+                if pose.position.z < -0.0001:
+                    self.status = ThymioController.RESET
+                    velocity = self.get_control(0, 0)
+                    self.velocity_publisher.publish(velocity)
 
-                self.start = time.time()
-                self.image_count += 1
+                    # store the pitfall flag with the identifier number of the previous image
+                    if self.flags is not None:
+                        self.flags = np.append(self.flags, self.image_count - 1)
+                    else:
+                        self.flags = [self.image_count - 1]
+                # Save picture and last 5 past position in the map for reset function
+                if milsec > 1:
+                    # Convert your ROS Image message to OpenCV2
+                    cv2_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+                    # Save your OpenCV2 image as a jpeg
+                    cv2.imwrite(self.path + "/data/imgs/{}.jpeg".format(self.image_count), cv2_img)
+                    self.current_pose[self.pos_count] = pose
+                    self.pos_count += 1
+                    # keep history of 5 last poses
+                    if self.pos_count == 5:
+                        self.pos_count = 0
+                    self.start = time.time()
+                    self.image_count += 1
 
     def sense_prox(self, data, topic):
         """Updates robot pose and velocities, and logs pose to console."""
@@ -169,42 +180,16 @@ class ThymioController:
                 velocity = self.get_control(0, 0)
                 self.velocity_publisher.publish(velocity)
 
-                if self.prox_flags is not None:
-                    self.prox_flags = np.append(self.prox_flags, self.image_count - 1)
-                else:
-                    self.prox_flags = [self.image_count - 1]
-
-                self.flagged_point = self.max_range
-
-        if sensor_range < self.flagged_point:
-            if self.status == ThymioController.FORWARD:
+                # When sensing an object save range value and mark last picture as object
                 if self.data is not None:
                     self.data = np.append(self.data, self.ranges.copy())
                 else:
                     self.data = self.ranges.copy()
 
-                self.flagged_point = self.flagged_point - self.step
-
-    def sense_ground(self, data, topic):
-        sensor_range = data.range
-        self.ranges[topic] = sensor_range
-        # implement a moving average compared to a hard thershold?
-        if (sensor_range > 0.11) and (self.status == ThymioController.FORWARD):
-
-            if topic == "ground_right":
-                self.pitfall_side = 1
-            else:
-                self.pitfall_side = -1
-
-            self.status = ThymioController.BACKING_UP
-            velocity = self.get_control(0, 0)
-            self.velocity_publisher.publish(velocity)
-
-            # store the pitfall flag with the identifier number of the previous image
-            if self.flags is not None:
-                self.flags = np.append(self.flags, self.image_count - 1)
-            else:
-                self.flags = [self.image_count - 1]
+                if self.prox_flags is not None:
+                    self.prox_flags = np.append(self.prox_flags, self.image_count - 1)
+                else:
+                    self.prox_flags = [self.image_count - 1]
 
     def get_control(self, vel, ang):
         return Twist(
@@ -268,24 +253,21 @@ class ThymioController:
 
                 self.status = ThymioController.FORWARD
 
-            elif self.status == ThymioController.BACKING_UP:
-                self.velocity_publisher.publish(self.get_control(0, 0))
-                t0 = rospy.Time.now().to_sec()
-                current_distance = 0
-                distance = 0.1
-                backup_speed = 0.1
-                while current_distance < distance:
-                    self.velocity_publisher.publish(self.get_control(-backup_speed, 0))
-                    t1 = rospy.Time.now().to_sec()
-                    current_distance = backup_speed * (t1 - t0)
-                self.status = ThymioController.ROTATING_PITFALL
+            elif self.status == ThymioController.RESET:
+                # For reset take last of the 5 stored state and restore position
+                state_msg = ModelState()
+                state_msg.model_name = self.name[1:]
+                state_msg.pose = self.current_pose[self.pos_count]
+                rospy.wait_for_service('/gazebo/set_model_state')
 
-            elif self.status == ThymioController.ROTATING_PITFALL:
-                print("in ROTATING_PITFALL")
-                self.velocity_publisher.publish(self.get_control(0, 0))
+                set_state = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
+                resp = set_state(state_msg)
+
+                # Once the position is restore rotate 150 or 210 degree to go away from the pitfall
                 t0 = rospy.Time.now().to_sec()
                 current_angle = 0
-                angle = np.deg2rad(90 + np.random.randint(5, 45))
+                angle = -30 if np.random.random() < 0.5 else +30
+                angle = np.deg2rad(180 + angle)
                 while current_angle < angle:
                     self.velocity_publisher.publish(self.get_control(0, self.angular_speed * self.pitfall_side))
                     t1 = rospy.Time.now().to_sec()
@@ -312,6 +294,7 @@ if __name__ == '__main__':
     try:
         controller.run()
     except rospy.ROSInterruptException as e:
+        # The data is saved if the user exit when in forward state with CTRL+C
         np.save(controller.path + "/data/sensor_data.npy", controller.data)
         np.save(controller.path + "/data/pitfall_flags.npy", controller.flags)
         np.save(controller.path + "/data/object_flags.npy", controller.prox_flags)

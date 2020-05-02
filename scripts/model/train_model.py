@@ -1,22 +1,24 @@
 import argparse
+import os
+# from mark_and_save_dataset import ObstaclePositionDataset
+import uuid
+
+import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.parallel
 import torch.nn.functional
+import torch.nn.parallel
 import torch.optim
 import torch.utils.data
+import wandb
+from cnn_regressor import CNNRegressor
+from longer_ranges_dataset import ObstaclePositionDataset
 from torch.optim.adagrad import Adagrad
 from torch.optim.adam import Adam
 from torch.optim.sgd import SGD
-from torch.utils.data import random_split
 from torch.utils.data import DataLoader
-import numpy as np
-import wandb
-import os
-from datetime import datetime
-from cnn_regressor import CNNRegressor
-from obstacle_position_dataset2 import ObstaclePositionDataset
-import uuid
+from torch.utils.data import random_split
+
 parser = argparse.ArgumentParser(description='PyTorch Rotation Training')
 parser.add_argument('data', metavar='PATH', help='path to dataset')
 parser.add_argument('--epochs', default=1000, type=int,
@@ -67,8 +69,8 @@ def main():
     val_size = int((len(dataset) / 100) * 20)
     train_set, val_set = random_split(dataset, [len(dataset) - val_size, val_size])
 
-    # val_size = int((len(train_set) / 100) * 20)
-    # train_set, val_set = random_split(dataset, [len(train_set) - val_size, val_size])
+    val_size = int((len(train_set) / 100) * 20)
+    train_set, val_set = random_split(dataset, [len(train_set) - val_size, val_size])
 
     # Final test set will be used only on the final architecture
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=True,
@@ -127,7 +129,6 @@ def train(model, criterion, optimizer, train_loader, val_loader, args):
             optimizer.step()
 
             losses.append(loss.detach().cpu().numpy())
-            # TODO define better way to evaluate model ? some kind of accuracy?
             del loss
             torch.cuda.empty_cache()
 

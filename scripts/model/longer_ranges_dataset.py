@@ -1,8 +1,8 @@
-from torch.utils.data import Dataset
-import torch
 import os
+
 import numpy as np
 from PIL import Image
+from torch.utils.data import Dataset
 from torchvision import transforms
 
 
@@ -15,17 +15,20 @@ class ObstaclePositionDataset(Dataset):
         self.targets = []
         min_distance = 0.5
         sensor_range = 2
+
         for elem in raw_target:
+            # normalize elements between 0 and 1 (1 is given when the object is at most 0.5 metres away)
             center_left = 1 - max((elem["center_left"] - min_distance) / (sensor_range - min_distance), 0)
             center_right = 1 - max((elem["center_right"] - min_distance) / (sensor_range - min_distance), 0)
             center = 1 - max((elem["center"] - min_distance) / (sensor_range - min_distance), 0)
 
+            # Compute T and C
             T = np.around(np.dot([center_left, center_right], [1, -1]), decimals=1)
             C = np.around(center, decimals=1)
             target = [T, C]
             self.targets.append(target)
 
-        # np.intersect1d(np.where(np.array(self.targets)[:, 0] == 0), np.where(np.array(self.targets)[:, 1] == 0))
+        # Normalization for ImageNet pretrain
         self.transform = transforms.Compose([
             transforms.Resize(256),
             transforms.CenterCrop(224),

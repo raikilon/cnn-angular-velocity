@@ -1,21 +1,20 @@
 #!/usr/bin/env python
 # -*- coding:UTF-8 -*-(add)
 
-import rospy
-from nav_msgs.msg import Odometry
-from sensor_msgs.msg import Range
-from geometry_msgs.msg import Pose, Twist, Vector3
-from tf.transformations import euler_from_quaternion
-import numpy as np
-# ROS Image message
-from sensor_msgs.msg import Image
-# ROS Image message -> OpenCV2 image converter
-from cv_bridge import CvBridge, CvBridgeError
-# OpenCV2 for saving an image
-import cv2
+import os
 import os.path
 import time
-import os
+
+# OpenCV2 for saving an image
+import cv2
+import numpy as np
+import rospy
+# ROS Image message -> OpenCV2 image converter
+from cv_bridge import CvBridge
+from geometry_msgs.msg import Pose, Twist, Vector3
+# ROS Image message
+from sensor_msgs.msg import Image
+from sensor_msgs.msg import Range
 
 
 class ThymioController:
@@ -116,12 +115,15 @@ class ThymioController:
 
         milsec = time.time() - self.start
 
+        # Save a picture every second
         if milsec > 1:
             # Convert your ROS Image message to OpenCV2
             cv2_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
 
             # Save your OpenCV2 image as a jpeg
             cv2.imwrite(self.path + "/data/imgs/{}.jpeg".format(self.image_count), cv2_img)
+
+            # With picture save range data
             if self.data is not None:
                 self.data = np.append(self.data, self.ranges.copy())
             else:
@@ -138,6 +140,7 @@ class ThymioController:
             if self.status == ThymioController.FORWARD:
                 dif = self.ranges["left"] - self.ranges["right"]
 
+                # Decide if it is orthogonal to an object
                 if np.isclose(0, dif, atol=0.005):
                     self.status = ThymioController.ROTATING_ORTHOGONAL
                 else:
@@ -226,5 +229,6 @@ if __name__ == '__main__':
     try:
         controller.run()
     except rospy.ROSInterruptException as e:
+        # The data is saved if the user exit when in forward state with CTRL+C
         np.save(controller.path + "/data/sensor_data.npy", controller.data)
         pass

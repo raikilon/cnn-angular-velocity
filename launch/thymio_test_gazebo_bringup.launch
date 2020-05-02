@@ -4,14 +4,13 @@
   <env name="GAZEBO_MODEL_PATH" value="$(find thymio_description)/..:$(find thymioid_description)/..:$(find final_project):$(optenv GAZEBO_MODEL_PATH)" />
   <env name="SVGA_VGPU10" value="0"/>
   <arg name="gui" default="true"/>
-  <arg name="world" default="empty"/>
 
   <include file="$(find final_project)/launch/custom_world.launch">
     <arg name="gui" value="$(arg gui)"/>
     <arg name="headless" value="$(eval not arg('gui'))"/>
     <arg name="paused" value="false"/>
     <arg name="use_sim_time" value="true"/>
-    <arg name="world" value="$(arg world)"/>
+    <arg name="world" value="test"/>
   </include>
 
   <include file="$(find thymioid_description)/launch/gazebo_bringup.launch">
@@ -140,15 +139,5 @@
 
   </include>
 
-
-<!--
-  <include file="$(find thymio_description)/launch/joy_teleop.launch">
-    <arg name="namespace" value="thymio10"/>
-  </include> -->
-
-  <!-- <include file="$(find thymioid_description)/launch/gazebo_bringup.launch">
-    <arg name="name" value="thymio20"/>
-    <arg name="pose" value="-x 1 -y 2 -z 0"/>
-  </include> -->
 
 </launch>

@@ -1,39 +1,30 @@
 #!/usr/bin/env python
 # -*- coding:UTF-8 -*-(add)
 
-import rospy
-from nav_msgs.msg import Odometry
-from sensor_msgs.msg import Range
-from geometry_msgs.msg import Pose, Twist, Vector3
-from tf.transformations import euler_from_quaternion
-import numpy as np
-# ROS Image message
-from sensor_msgs.msg import Image
-# ROS Image message -> OpenCV2 image converter
-from cv_bridge import CvBridge, CvBridgeError
-# OpenCV2 for saving an image
-import cv2
+import os
 import os.path
 import time
-import os
+
+# OpenCV2 for saving an image
+import cv2
+import numpy as np
+import rospy
+# ROS Image message -> OpenCV2 image converter
+from cv_bridge import CvBridge
+from geometry_msgs.msg import Twist
+# ROS Image message
+from sensor_msgs.msg import Image
 
 
 class ThymioController:
-    FORWARD = 1
-    ROTATING = 2
-    ROTATING_ORTHOGONAL = 3
-    count = 0
 
     def __init__(self):
         """Initialization."""
-        self.ranges = {}
         self.start = time.time()
         self.bridge = CvBridge()
         self.image_count = 0
-        self.sensors = []
         self.path = os.path.dirname(os.path.abspath(__file__))
         self.data = None
-        self.angular_vel = 0
 
         if not os.path.exists(self.path + "/data"):
             os.makedirs(self.path + "/data")
@@ -43,10 +34,9 @@ class ThymioController:
 
         # initialize the node
         rospy.init_node(
-            'thymio_controller' + str(ThymioController.count)  # name of the node
+            'thymio_controller'
         )
 
-        ThymioController.count = ThymioController.count + 1
         self.name = rospy.get_param('~robot_name')
 
         self.image = rospy.Subscriber(
@@ -65,12 +55,6 @@ class ThymioController:
         # tell ros to call stop when the program is terminated
         rospy.on_shutdown(self.stop)
 
-        # initialize pose to (X=0, Y=0, theta=0)
-        self.pose = Pose()
-
-        # initialize linear and angular velocities to 0
-        self.velocity = Twist()
-
         # set node update frequency in Hz
         self.rate = rospy.Rate(10)
 
@@ -81,6 +65,7 @@ class ThymioController:
 
         milsec = time.time() - self.start
 
+        # Save picture and angular velocity every second
         if milsec > 1:
             # Convert your ROS Image message to OpenCV2
             cv2_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
@@ -111,11 +96,13 @@ class ThymioController:
 
         self.rate.sleep()
 
+
 if __name__ == '__main__':
     controller = ThymioController()
 
     try:
         controller.run()
     except rospy.ROSInterruptException as e:
+        # The data is saved if the user exit when in forward state with CTRL+C
         np.save(controller.path + "/data/angular_vel.npy", controller.data)
         pass

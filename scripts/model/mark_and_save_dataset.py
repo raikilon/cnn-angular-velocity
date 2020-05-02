@@ -1,8 +1,8 @@
-from torch.utils.data import Dataset
-import torch
 import os
+
 import numpy as np
 from PIL import Image
+from torch.utils.data import Dataset
 from torchvision import transforms
 
 
@@ -23,21 +23,24 @@ class ObstaclePositionDataset(Dataset):
         min_distance = 0.05
         sensor_range = 0.12
 
-        ####### Begin: Implementation of extra part, not relying on artificial simulation data
+
         self.targets = np.zeros((2, len(self.images)))
 
-        # target values for object detection
+        # Loop over all images that have been marked as object
         for i in range(len(object_flags)):
+            # normalization between 0 and 1 (1 is given when the object is at most 5 centimetres away)
             center_left = 1 - max((raw_target[i]["center_left"] - min_distance) / (sensor_range - min_distance),
                                   0)
             center_right = 1 - max((raw_target[i]["center_right"] - min_distance) / (sensor_range - min_distance),
                                    0)
             center = 1 - max((raw_target[i]["center"] - min_distance) / (sensor_range - min_distance), 0)
 
+            # compute T and C for current image
             T = np.around(np.dot([center_left, center_right], [1, -1]), decimals=1)
             C = np.around(center, decimals=1)
             target = [T, C]
             idx = object_flags[i]
+            # Assign the same target to the current picture and its 4 previous ones
             self.targets[:, idx] = target
             if idx - 1 >= 0:
                 self.targets[:, idx - 1] = target
@@ -48,13 +51,13 @@ class ObstaclePositionDataset(Dataset):
             if idx-4 >= 0:
                 self.targets[:, idx - 4] = target
 
-        # target values for pitfall detection
+
 
         for img_idx in pitfall_flags:
+            # For each image marked as pitfalls assign C to 1 to it and its previous 4 pictures
             for j in range(0, 5):
                 self.targets[1, img_idx - j] = 1
 
-        ####### End: Implementation of extra part, not relying on artificial simulation data
         self.transform = transforms.Compose([
             transforms.Resize(256),
             transforms.CenterCrop(224),
