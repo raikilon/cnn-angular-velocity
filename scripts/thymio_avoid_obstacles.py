@@ -25,10 +25,14 @@ class ThymioController:
     def __init__(self):
         """Initialization."""
         self.speed = 0.2
-
+        self.angular_speed = 0
         self.start = time.time()
         self.bridge = CvBridge()
         self.path = os.path.dirname(os.path.abspath(__file__))
+        # initialize the node
+        rospy.init_node(
+            'thymio_controller1'
+        )
         # Init CNN model
         self.model = CNNRegressor(2, False)
         checkpoint = torch.load(self.path+"/{}.tar".format(rospy.get_param('~model')), map_location='cpu')
@@ -44,10 +48,7 @@ class ThymioController:
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
 
-        # initialize the node
-        rospy.init_node(
-            'thymio_controller1'
-        )
+        
 
         self.name = rospy.get_param('~robot_name')
 
