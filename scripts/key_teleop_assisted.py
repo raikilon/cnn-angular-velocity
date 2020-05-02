@@ -28,6 +28,7 @@ import torch.utils.data
 from torchvision import transforms
 import PIL.Image as PILImage
 from model.cnn_regressor import CNNRegressor
+import os
 
 class Velocity(object):
 
@@ -106,7 +107,7 @@ class KeyTeleop():
 
         self._num_steps = rospy.get_param('~turbo/steps', 1)
 
-        forward_min = rospy.get_param('~turbo/linear_forward_min', 0.5)
+        forward_min = rospy.get_param('~turbo/linear_forward_min', 0.2)
         forward_max = rospy.get_param('~turbo/linear_forward_max', 1.5)
         self._forward = Velocity(forward_min, forward_max, self._num_steps)
 
@@ -127,10 +128,11 @@ class KeyTeleop():
         self.assistant_step = 11
         # Instantiate CvBridge
         self.bridge = CvBridge()
+        self.path = os.path.dirname(os.path.abspath(__file__))
 
         # Init CNN model
         self.model = CNNRegressor(2, False)
-        checkpoint = torch.load("pitfalls.tar", map_location='cpu')
+        checkpoint = torch.load(self.path+"/model{}.tar".format(rospy.get_param('~model')), map_location='cpu')
         self.model.load_state_dict(checkpoint['state_dict'])
         self.model.eval()
         del checkpoint
@@ -173,9 +175,9 @@ class KeyTeleop():
             with torch.no_grad():
                 output = self.model(image.unsqueeze_(0))
                 output = output.detach().numpy()[0]
-                if np.max(abs(output)) > 0.5:
+                if np.max(abs(output)) > 0.4:
                     if self.assistant_step != 0:
-                        self.prev_linear = self._linear
+                        # self.prev_linear = self._linear
                         self.prev_message = self.message
                         self.message = 'Collision prevention assistant taking control'
                     # print("hit output ovewr 0.6")
@@ -185,7 +187,7 @@ class KeyTeleop():
                 elif self.assistant_step == 0:
                     # print("end timecheck" + str(self.assistant_step))
                     self._angular = 0
-                    self._linear = self.prev_linear
+                    # self._linear = self.prev_linear
                     self.message = self.prev_message
                     self.assistant_step = 1
 
@@ -198,14 +200,11 @@ class KeyTeleop():
     def assistant_steer(self, output):
         if output[1] > abs(output[0]):
             # print("Center")
-            angular = self._angular + output[1]
-            if abs(angular) <= self._num_steps:
-                self._angular = angular
-                self._linear = 0
+            self._angular = self._angular + output[1]
+            # self._linear = 0
+                
         else:
-            angular = self._angular - output[0]
-            if abs(angular) <= self._num_steps:
-                self._angular = angular
+            self._angular = self._angular - output[0]
             # if output[0] > 0:
                 # print("LEFT")
             # else:
@@ -233,7 +232,7 @@ class KeyTeleop():
             twist.linear.x = self._forward(1.0, linear)
         else:
             twist.linear.x = self._backward(-1.0, -linear)
-        twist.angular.z = self._rotation(math.copysign(1, angular), abs(angular))
+        twist.angular.z = self._rotation(math.copysign(1, angular), min(abs(angular), 1))
         return twist
 
     def _key_pressed(self, keycode):
