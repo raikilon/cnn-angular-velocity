@@ -35,7 +35,7 @@ class ThymioController:
         )
         # Init CNN model
         self.model = CNNRegressor(2, False)
-        checkpoint = torch.load(self.path+"/{}.tar".format(rospy.get_param('~model')), map_location='cpu')
+        checkpoint = torch.load(self.path+"/model{}.tar".format(rospy.get_param('~model')), map_location='cpu')
         self.model.load_state_dict(checkpoint['state_dict'])
         self.model.eval()
         del checkpoint
@@ -74,7 +74,7 @@ class ThymioController:
     def image_callback(self, msg):
         milsec = time.time() - self.start
         # do inference every second
-        if milsec > 1:
+        if milsec > 0.5:
             # Convert your ROS Image message to OpenCV2
             cv2_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
             img = cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB)

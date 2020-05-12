@@ -51,7 +51,6 @@ class Velocity(object):
         if step == 0:
             return 0
 
-        assert step > 0 and step <= self._num_steps
         max_value = self._min + self._step_incr * (step - 1)
         return value * max_value
 
@@ -177,7 +176,7 @@ class KeyTeleop():
                 output = output.detach().numpy()[0]
                 if np.max(abs(output)) > 0.4:
                     if self.assistant_step != 0:
-                        # self.prev_linear = self._linear
+                        self.prev_linear = self._forward._min
                         self.prev_message = self.message
                         self.message = 'Collision prevention assistant taking control'
                     # print("hit output ovewr 0.6")
@@ -187,21 +186,21 @@ class KeyTeleop():
                 elif self.assistant_step == 0:
                     # print("end timecheck" + str(self.assistant_step))
                     self._angular = 0
-                    # self._linear = self.prev_linear
+                    self._forward._min = self.prev_linear
                     self.message = self.prev_message
                     self.assistant_step = 1
 
             self.start = time.time()
 
-            # velocity = self.get_control(self._linear, self._angular)
+            #velocity = self.get_control(self._linear, self._angular)
 
             self._publish()
 
     def assistant_steer(self, output):
         if output[1] > abs(output[0]):
             # print("Center")
-            self._angular = self._angular + output[1]
-            # self._linear = 0
+            self._angular = self._angular + output[1]*1.5
+            self._forward._min = self.prev_linear / (self._angular)
                 
         else:
             self._angular = self._angular - output[0]
@@ -232,7 +231,7 @@ class KeyTeleop():
             twist.linear.x = self._forward(1.0, linear)
         else:
             twist.linear.x = self._backward(-1.0, -linear)
-        twist.angular.z = self._rotation(math.copysign(1, angular), min(abs(angular), 1))
+        twist.angular.z = self._rotation(math.copysign(1, angular), abs(angular))
         return twist
 
     def _key_pressed(self, keycode):
