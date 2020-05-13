@@ -1,6 +1,5 @@
 import argparse
 import os
-# from mark_and_save_dataset import ObstaclePositionDataset
 import uuid
 
 import numpy as np
@@ -13,6 +12,7 @@ import torch.utils.data
 import wandb
 from cnn_regressor import CNNRegressor
 from longer_ranges_dataset import ObstaclePositionDataset
+# from mark_and_save_dataset import ObstaclePositionDataset
 from torch.optim.adagrad import Adagrad
 from torch.optim.adam import Adam
 from torch.optim.sgd import SGD

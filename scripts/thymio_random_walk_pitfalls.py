@@ -138,7 +138,7 @@ class ThymioController:
         # check if falling every 0.5 second only if it in forward state
         if milsec > 0.5:
             if self.status == ThymioController.FORWARD:
-                pose = self.model_state(self.name[1:], "").pose
+                pose = self.model_state(self.name, "").pose
                 # if falling do reset
                 if pose.position.z < -0.0001:
                     self.status = ThymioController.RESET
@@ -256,7 +256,7 @@ class ThymioController:
             elif self.status == ThymioController.RESET:
                 # For reset take last of the 5 stored state and restore position
                 state_msg = ModelState()
-                state_msg.model_name = self.name[1:]
+                state_msg.model_name = self.name
                 state_msg.pose = self.current_pose[self.pos_count]
                 rospy.wait_for_service('/gazebo/set_model_state')
 
