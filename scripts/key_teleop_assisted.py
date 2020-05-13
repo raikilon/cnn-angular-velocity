@@ -30,6 +30,7 @@ import PIL.Image as PILImage
 from model.cnn_regressor import CNNRegressor
 import os
 
+
 class Velocity(object):
 
     def __init__(self, min_velocity, max_velocity, num_steps):
@@ -54,8 +55,8 @@ class Velocity(object):
         max_value = self._min + self._step_incr * (step - 1)
         return value * max_value
 
-class TextWindow():
 
+class TextWindow():
     _screen = None
     _window = None
     _num_lines = None
@@ -91,8 +92,8 @@ class TextWindow():
     def beep(self):
         curses.flash()
 
-class KeyTeleop():
 
+class KeyTeleop():
     _interface = None
 
     _linear = None
@@ -131,7 +132,7 @@ class KeyTeleop():
 
         # Init CNN model
         self.model = CNNRegressor(2, False)
-        checkpoint = torch.load(self.path+"/model{}.tar".format(rospy.get_param('~model')), map_location='cpu')
+        checkpoint = torch.load(self.path + "/model{}.tar".format(rospy.get_param('~model')), map_location='cpu')
         self.model.load_state_dict(checkpoint['state_dict'])
         self.model.eval()
         del checkpoint
@@ -147,6 +148,7 @@ class KeyTeleop():
         # SimpleKeyTeleop.count = SimpleKeyTeleop.count + 1
         self.name = rospy.get_param('~robot_name')
 
+        self.sign = -1
         # log robot name to console
         rospy.loginfo('Controlling %s' % self.name)
 
@@ -189,26 +191,29 @@ class KeyTeleop():
                     self._forward._min = self.prev_linear
                     self.message = self.prev_message
                     self.assistant_step = 1
-
+                    #self.sign = -1
             self.start = time.time()
 
-            #velocity = self.get_control(self._linear, self._angular)
+            # velocity = self.get_control(self._linear, self._angular)
 
             self._publish()
 
     def assistant_steer(self, output):
         if output[1] > abs(output[0]):
             # print("Center")
-            self._angular = self._angular + output[1]*1.5
-            self._forward._min = self.prev_linear / (self._angular)
-                
-        else:
-            self._angular = self._angular - output[0]
-            # if output[0] > 0:
-                # print("LEFT")
-            # else:
-                # print("RIGHT")
+            print(output[0])
+            if abs(output[0]) > 0.3:
+                self.sign = - np.sign(output[0])
+            self._angular = self.sign * output[1] * 2
+            #self._forward._min = self.prev_linear / abs(self._angular)
 
+        else:
+            self.sign = -1
+            self._angular =  - output[0]
+            # if output[0] > 0:
+            # print("LEFT")
+            # else:
+            # print("RIGHT")
 
     def run(self):
         self._linear = 0
@@ -236,10 +241,10 @@ class KeyTeleop():
 
     def _key_pressed(self, keycode):
         movement_bindings = {
-            curses.KEY_UP:    ( 1,  0),
-            curses.KEY_DOWN:  (-1,  0),
-            curses.KEY_LEFT:  ( 0,  1),
-            curses.KEY_RIGHT: ( 0, -1),
+            curses.KEY_UP: (1, 0),
+            curses.KEY_DOWN: (-1, 0),
+            curses.KEY_LEFT: (0, 1),
+            curses.KEY_RIGHT: (0, -1),
         }
         speed_bindings = {
             ord(' '): (0, 0),
@@ -348,14 +353,13 @@ class SimpleKeyTeleop():
         rospy.on_shutdown(self.stop)
 
         ## end: fields for automatic obstacle bypass ###
-        
 
     movement_bindings = {
-        curses.KEY_UP:    ( 1,  0),
-        curses.KEY_DOWN:  (-1,  0),
-        curses.KEY_LEFT:  ( 0,  1),
-        curses.KEY_RIGHT: ( 0, -1),
-        }
+        curses.KEY_UP: (1, 0),
+        curses.KEY_DOWN: (-1, 0),
+        curses.KEY_LEFT: (0, 1),
+        curses.KEY_RIGHT: (0, -1),
+    }
 
     def image_callback(self, msg):
 
@@ -473,6 +477,7 @@ def main(stdscr):
     rospy.init_node('key_teleop')
     app = KeyTeleop(TextWindow(stdscr))
     app.run()
+
 
 if __name__ == '__main__':
     try:

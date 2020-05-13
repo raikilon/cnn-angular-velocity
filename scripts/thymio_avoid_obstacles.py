@@ -20,11 +20,14 @@ from model.cnn_regressor import CNNRegressor
 from sensor_msgs.msg import Image
 from torchvision import transforms
 import os
+import numpy as np
+
 
 class ThymioController:
     def __init__(self):
         """Initialization."""
         self.speed = 0.2
+        self.sign = -1
         self.angular_speed = 0
         self.start = time.time()
         self.bridge = CvBridge()
@@ -35,7 +38,7 @@ class ThymioController:
         )
         # Init CNN model
         self.model = CNNRegressor(2, False)
-        checkpoint = torch.load(self.path+"/model{}.tar".format(rospy.get_param('~model')), map_location='cpu')
+        checkpoint = torch.load(self.path + "/model{}.tar".format(rospy.get_param('~model')), map_location='cpu')
         self.model.load_state_dict(checkpoint['state_dict'])
         self.model.eval()
         del checkpoint
@@ -47,8 +50,6 @@ class ThymioController:
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
-
-        
 
         self.name = rospy.get_param('~robot_name')
 
@@ -86,8 +87,11 @@ class ThymioController:
 
                 # Think that there is a centered object or a pitfall
                 if output[1] > abs(output[0]):
-                    self.angular_speed = output[1]
+                    if abs(output[0]) > 0.3:
+                        self.sign = - np.sign(output[0])
+                    self.angular_speed = self.sign * output[1]
                 else:
+                    self.sign = -1
                     self.angular_speed = - output[0]
 
             self.start = time.time()
