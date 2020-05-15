@@ -55,7 +55,7 @@ class ObstaclePositionDataset(Dataset):
 
         for img_idx in pitfall_flags:
             # For each image marked as pitfalls assign C to 1 to it and its previous 4 pictures
-            for j in range(0, 5):
+            for j in range(0, 8):
                 self.targets[1, img_idx - j] = 1
 
         self.transform = transforms.Compose([
