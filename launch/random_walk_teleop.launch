@@ -4,12 +4,12 @@
 <!-- arguments are set via terminal and can have a default value -->
 <arg name="robot_name" default="thymio10" />
 <!-- nodes are exectued -->
-<node pkg="final_project" name="thymio_controller" type="thymio_random_walk_teleop.py" output="screen">
+<node pkg="cnn-angular-velocity" name="thymio_controller" type="thymio_random_walk_teleop.py" output="screen">
     <!-- paramters must be set in the launchfile -->
     <param name="robot_name" value="/$(arg robot_name)" />
 </node>
 
-<node pkg="final_project" name="thymio_controller" type="key_teleop.py" output="screen">
+<node pkg="cnn-angular-velocity" name="thymio_controller" type="key_teleop.py" output="screen">
     <!-- paramters must be set in the launchfile -->
     <param name="robot_name" value="/$(arg robot_name)" />
 </node>

@@ -5,7 +5,7 @@
 <arg name="robot_name" default="thymio10" />
 <arg name="model" default="pitfalls" />
 <!-- nodes are exectued -->
-<node pkg="final_project" name="thymio_controller" type="key_teleop_assisted.py" output="screen">
+<node pkg="cnn-angular-velocity" name="thymio_controller" type="key_teleop_assisted.py" output="screen">
     <!-- paramters must be set in the launchfile -->
     <param name="robot_name" value="/$(arg robot_name)" />
    	<param name="model" value="/$(arg model)" />

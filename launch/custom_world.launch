@@ -22,7 +22,7 @@
 
   <!-- set use_sim_time flag -->
   <param name="/use_sim_time" value="$(arg use_sim_time)"/>
-  <arg name="world_name" default="$(find final_project)/launch/worlds/$(arg world).world"/> <!-- Note: the world_name is with respect to GAZEBO_RESOURCE_PATH environmental variable -->
+  <arg name="world_name" default="$(find cnn-angular-velocity)/launch/worlds/$(arg world).world"/> <!-- Note: the world_name is with respect to GAZEBO_RESOURCE_PATH environmental variable -->
 
   <!-- set command arguments -->
   <arg unless="$(arg paused)" name="command_arg1" value=""/>

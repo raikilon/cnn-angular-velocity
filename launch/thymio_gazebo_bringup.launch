@@ -1,13 +1,13 @@
 <?xml version="1.0"?>
 <launch>
 
-  <env name="GAZEBO_MODEL_PATH" value="$(find thymio_description)/..:$(find thymioid_description)/..:$(find final_project):$(optenv GAZEBO_MODEL_PATH)" />
+  <env name="GAZEBO_MODEL_PATH" value="$(find thymio_description)/..:$(find thymioid_description)/..:$(find cnn-angular-velocity):$(optenv GAZEBO_MODEL_PATH)" />
   <env name="SVGA_VGPU10" value="0"/>
   <arg name="gui" default="true"/>
   <arg name="name" default=""/>
   <arg name="world" default="empty"/>
 
-  <include file="$(find final_project)/launch/custom_world.launch">
+  <include file="$(find cnn-angular-velocity)/launch/custom_world.launch">
     <arg name="gui" value="$(arg gui)"/>
     <arg name="headless" value="$(eval not arg('gui'))"/>
     <arg name="paused" value="false"/>

@@ -6,16 +6,16 @@ If you want to have more information about our implementaiton please look at pro
 
 ## How to use
 
-First add the `final_project` package to your `your_catkin_workspace`
+First add the `cnn-angular-velocity` package to your `your_catkin_workspace`
 
 ### Get training data
 To get the training data please launch Gazebo with the wanted world (simple or pitfalls)
 ```
-roslaunch final_project thymio_gazebo_bringup.launch name:=thymio10 world:=simple
+roslaunch cnn-angular-velocity thymio_gazebo_bringup.launch name:=thymio10 world:=simple
 ```
 and then execute the `random_walk.launch` file as follow:
 ```
-roslaunch final_project random_walk.launch
+roslaunch cnn-angular-velocity random_walk.launch
 ```
 This script will populate the folder `data/imgs` with images from the Thymio (one per second) and once the program is closed with `ctrl+c` (better to do this when the Thymio is moving forward) it also saves the target data in `sensor_data.npy` (when using the save & flag system it will save also ` pitfall_flags.npy` and `object_flags.npy` ).
 
@@ -52,18 +52,18 @@ Already trained model can be found at the following [link](https://mega.nz/folde
 ### Test model
 To test the model put the `.tar` file in the model directory and then  launch Gazebo with the wanted world (simple or pitfalls)
 ```bash
-roslaunch final_project thymio_gazebo_bringup.launch name:=thymio10 world:=simple
+roslaunch cnn-angular-velocity thymio_gazebo_bringup.launch name:=thymio10 world:=simple
 ```
 or the test world
 
 ```
-roslaunch final_project thymio_test_gazebo_bringup.launch
+roslaunch cnn-angular-velocity thymio_test_gazebo_bringup.launch
 ```
 
 and then execute the `avoid_obstacle.launch` file with the chosen model (pitfalls or obstacles) as follow (X is 10 for normal world and 11 to 16 for the test world):
 
 ```
-roslaunch final_project avoid_obstacle.launch name:=thymioX model:=pitfalls
+roslaunch cnn-angular-velocity avoid_obstacles.launch robot_name:=thymioX model:=pitfalls
 ```
 
 #### Teleoperation
@@ -71,11 +71,11 @@ roslaunch final_project avoid_obstacle.launch name:=thymioX model:=pitfalls
 To test the model please launch Gazebo with the wanted world 
 
 ```
-roslaunch final_project thymio_gazebo_bringup.launch name:=thymio10 world:=pitfalls
+roslaunch cnn-angular-velocity thymio_gazebo_bringup.launch name:=thymio10 world:=pitfalls
 ```
 and then execute the `avoid_obstacle.launch` file as follow:
 ```
-roslaunch final_project teleoperate.launch
+roslaunch cnn-angular-velocity teleoperate.launch
 ```
 ### Contacts 
 
