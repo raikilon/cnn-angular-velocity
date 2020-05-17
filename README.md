@@ -80,3 +80,9 @@ roslaunch cnn-angular-velocity teleoperate.launch
 ### Contacts 
 
 If you have any doubts please contact us at noli.manzoni@usi.ch or micheal.denzler.usi.ch
+
+## Results
+
+![results](https://github.com/raikilon/cnn-angular-velocity/blob/master/results.gif)
+
+
