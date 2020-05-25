@@ -79,7 +79,7 @@ roslaunch cnn-angular-velocity teleoperate.launch
 ```
 ### Contacts 
 
-If you have any doubts please contact us at noli.manzoni@usi.ch or micheal.denzler.usi.ch
+If you have any doubts please contact us at noli.manzoni@usi.ch or micheal.denzler@usi.ch
 
 ## Results
 
