@@ -21,7 +21,7 @@ This script will populate the folder `data/imgs` with images from the Thymio (on
 
 Please record one big dataset for training and one small one for validation (model selection via wandb). In our presentation the training set had around 2000 images and 250 for the validation set.
 
-#### Collection systems
+**Collection systems**
 
 Longer ranges: random_walk.launch
 
