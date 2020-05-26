@@ -8,7 +8,7 @@ from torchvision import transforms
 
 class ObstaclePositionDataset(Dataset):
     def __init__(self, images_dir):
-        # image store every 4s
+        # load images and sort them
         self.image_dir = os.path.join(images_dir, "imgs")
         self.images = os.listdir(self.image_dir)
         self.images = sorted(self.images, key=lambda x: int(os.path.splitext(x)[0]))
@@ -19,10 +19,10 @@ class ObstaclePositionDataset(Dataset):
         # pitfall flags stored at max groundn threshold (0.11)
         pitfall_flags = np.load(os.path.join(images_dir, "pitfall_flags.npy"), allow_pickle=True)
 
-        self.targets = []
+        # max distance from the obstacles, if Thymio is at this distance the target will be set to 1 (it needs to steer)
         min_distance = 0.05
+        # sensor max range
         sensor_range = 0.12
-
 
         self.targets = np.zeros((2, len(self.images)))
 
@@ -41,6 +41,7 @@ class ObstaclePositionDataset(Dataset):
             target = [T, C]
             idx = object_flags[i]
             # Assign the same target to the current picture and its 4 previous ones
+            # to get sooner reaction you can increase the number of previous pictures
             self.targets[:, idx] = target
             if idx - 1 >= 0:
                 self.targets[:, idx - 1] = target
@@ -48,16 +49,16 @@ class ObstaclePositionDataset(Dataset):
                 self.targets[:, idx - 2] = target
             if idx - 3 >= 0:
                 self.targets[:, idx - 3] = target
-            if idx-4 >= 0:
+            if idx - 4 >= 0:
                 self.targets[:, idx - 4] = target
 
-
-
+        # to get sooner reaction you can increase the number of previous pictures
         for img_idx in pitfall_flags:
-            # For each image marked as pitfalls assign C to 1 to it and its previous 4 pictures
+            # For each image marked as pitfalls assign C to 1 to it and its previous 8 pictures
             for j in range(0, 8):
                 self.targets[1, img_idx - j] = 1
 
+        # Normalization for ImageNet pretrain
         self.transform = transforms.Compose([
             transforms.Resize(256),
             transforms.CenterCrop(224),
@@ -69,11 +70,12 @@ class ObstaclePositionDataset(Dataset):
         return len(self.images)
 
     def __getitem__(self, idx):
+        # read given images
         with open(os.path.join(self.image_dir, self.images[idx]), 'rb') as f:
             img = Image.open(f)
             image = img.convert('RGB')
-        target = np.array(self.targets[:,idx], dtype=np.float32)
-
+        target = np.array(self.targets[:, idx], dtype=np.float32)
+        # apply normalization
         if self.transform:
             image = self.transform(image)
 

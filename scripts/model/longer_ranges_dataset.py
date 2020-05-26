@@ -8,12 +8,16 @@ from torchvision import transforms
 
 class ObstaclePositionDataset(Dataset):
     def __init__(self, images_dir):
+        # load images and sort them
         self.image_dir = os.path.join(images_dir, "imgs")
         self.images = os.listdir(self.image_dir)
         self.images = sorted(self.images, key=lambda x: int(os.path.splitext(x)[0]))
+        # low raw targets (IR sensors readings)
         raw_target = np.load(os.path.join(images_dir, "sensor_data.npy"), allow_pickle=True)
         self.targets = []
+        # max distance from the obstacles, if Thymio is at this distance the target will be set to 1 (it needs to steer)
         min_distance = 0.5
+        # sensor max range
         sensor_range = 2
 
         for elem in raw_target:
@@ -40,11 +44,12 @@ class ObstaclePositionDataset(Dataset):
         return len(self.images)
 
     def __getitem__(self, idx):
+        # read given images
         with open(os.path.join(self.image_dir, self.images[idx]), 'rb') as f:
             img = Image.open(f)
             image = img.convert('RGB')
         target = np.array(self.targets[idx], dtype=np.float32)
-
+        # apply normalization
         if self.transform:
             image = self.transform(image)
 
