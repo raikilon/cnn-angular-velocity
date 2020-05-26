@@ -21,7 +21,7 @@ This script will populate the folder `data/imgs` with images from the Thymio (on
 
 Please record one big dataset for training and one small one for validation (model selection via wandb). In our presentation the training set had around 2000 images and 250 for the validation set.
 
-#### Collection systems
+**Collection systems**
 
 Longer ranges: random_walk.launch
 
@@ -47,7 +47,7 @@ We trained our model on a GPU node in [USI HPC cluster](https://intranet.ics.usi
 
 If you use the save and flag system, please change the dataset import in the top of `train_model.py`and add the additional file to the data directory.
 
-Already trained model can be found at the following [link](https://mega.nz/folder/FhQjVQhB#WGYx3LL-L5fwcznx5PM3tw) where  `pitfalls.tar` is a model trained with the save and flag system on the pitfalls map and `obstacles.tar` is the model trained with long ranges on the simple map.
+Already trained model (and corresponding datasets) can be found at the following [link](https://mega.nz/folder/FhQjVQhB#WGYx3LL-L5fwcznx5PM3tw) where  `pitfalls.tar` is a model trained with the save and flag system on the pitfalls map and `obstacles.tar` is the model trained with long ranges on the simple map.
 
 ### Test model
 To test the model put the `.tar` file in the model directory and then  launch Gazebo with the wanted world (simple or pitfalls)
@@ -79,7 +79,7 @@ roslaunch cnn-angular-velocity teleoperate.launch
 ```
 ### Contacts 
 
-If you have any doubts please contact us at noli.manzoni@usi.ch or micheal.denzler.usi.ch
+If you have any doubts please contact us at noli.manzoni@usi.ch or michael.denzler@usi.ch
 
 ## Results
 
