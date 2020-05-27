@@ -30,7 +30,7 @@ import PIL.Image as PILImage
 from model.cnn_regressor import CNNRegressor
 import os
 
-
+# as in standard teleoperation source code
 class Velocity(object):
 
     def __init__(self, min_velocity, max_velocity, num_steps):
@@ -55,7 +55,7 @@ class Velocity(object):
         max_value = self._min + self._step_incr * (step - 1)
         return value * max_value
 
-
+# as in standard teleoperation source code
 class TextWindow():
     _screen = None
     _window = None
@@ -92,7 +92,7 @@ class TextWindow():
     def beep(self):
         curses.flash()
 
-
+# This class we used for our semi-automatic assisted teleoperation
 class KeyTeleop():
     _interface = None
 
@@ -101,36 +101,41 @@ class KeyTeleop():
 
     def __init__(self, interface):
         self._interface = interface
+        # thymio publisher
         self._pub_cmd = rospy.Publisher('/thymio10/cmd_vel', Twist)
-
+        # rate set to 10hz
         self._hz = rospy.get_param('~hz', 10)
-
+        # sum_step counter from openspurce implementation of KeyTeleop. 
+        # Initially set to for, we only allow 1 command click while performing an action
         self._num_steps = rospy.get_param('~turbo/steps', 1)
-
+        # min and max value for forward velocity
         forward_min = rospy.get_param('~turbo/linear_forward_min', 0.2)
         forward_max = rospy.get_param('~turbo/linear_forward_max', 1.5)
         self._forward = Velocity(forward_min, forward_max, self._num_steps)
-
+        # min and max value for backward velocity
         backward_min = rospy.get_param('~turbo/linear_backward_min', 0.3)
         backward_max = rospy.get_param('~turbo/linear_backward_max', 1.0)
         self._backward = Velocity(backward_min, backward_max, self._num_steps)
-
+        # min and max value for angular velocity
         angular_min = rospy.get_param('~turbo/angular_min', 0.8)
         angular_max = rospy.get_param('~turbo/angular_max', 3.0)
         self._rotation = Velocity(angular_min, angular_max, self._num_steps)
-
+        # message in terminal while teleoperation is active (assistant passive)
         self.message = 'Use arrow keys to move, space to stop, q to exit.'
         self.prev_message = self.message
 
-        ### begin: fields for automatic obstacle bypass ###
+        ### Begin: fields for automatic obstacle bypass ###
+        # initialize status to FORWARD for Thymio state machine
         self.status = SimpleKeyTeleop.FORWARD
         self.start = time.time()
+        #initialize assistant_step value to non zero
         self.assistant_step = 11
         # Instantiate CvBridge
         self.bridge = CvBridge()
+        #path to current directory
         self.path = os.path.dirname(os.path.abspath(__file__))
 
-        # Init CNN model
+        # Initalize CNN model
         self.model = CNNRegressor(2, False)
         checkpoint = torch.load(self.path + "/model{}.tar".format(rospy.get_param('~model')), map_location='cpu')
         self.model.load_state_dict(checkpoint['state_dict'])
@@ -145,13 +150,14 @@ class KeyTeleop():
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
 
-        # SimpleKeyTeleop.count = SimpleKeyTeleop.count + 1
+        # get robot name from console
         self.name = rospy.get_param('~robot_name')
-
+        # default sign is -1 (left)
         self.sign = -1
         # log robot name to console
         rospy.loginfo('Controlling %s' % self.name)
 
+        # subscriber to raw camera messages
         self.image = rospy.Subscriber(
             self.name + '/camera/image_raw',  # name of the topic
             Image,  # message type
@@ -161,60 +167,74 @@ class KeyTeleop():
         # tell ros to call stop when the program is terminated
         rospy.on_shutdown(self.stop)
 
-        ## end: fields for automatic obstacle bypass ###
+        ## End: fields for automatic obstacle bypass ###
 
+    # called on each incoming raw camera frame
     def image_callback(self, msg):
 
+        # get time past till last start time count
         milsec = time.time() - self.start
-
+        # if more than 0.4 seconds passed, act as follows
         if milsec > 0.4:
             # Convert your ROS Image message to OpenCV2
             cv2_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+            # convert color to RGB
             img = cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB)
+            # get image as PIL image
             im_pil = PILImage.fromarray(img)
+            # transform PIL image to prepare for CNN
             image = self.transform(im_pil)
             with torch.no_grad():
+                # get CNN output
                 output = self.model(image.unsqueeze_(0))
                 output = output.detach().numpy()[0]
+                # act if either C or T gives a stronger signal than threshold 0.4
                 if np.max(abs(output)) > 0.4:
+                    # if assistant_step non zero, make collision prevention assistant take over th control
                     if self.assistant_step != 0:
+                        # remember the linear velocity before the assistant kicked in
                         self.prev_linear = self._forward._min
+                        # remember the terminal message while teleoperation was active
                         self.prev_message = self.message
+                        # set terminal message to 'Collision prevention assistant taking control'
                         self.message = 'Collision prevention assistant taking control'
-                    # print("hit output ovewr 0.6")
+                    # automatic steering by assistant using CNN output values
                     self.assistant_steer(output)
+                    # set asssitant_step to 0
                     self.assistant_step = 0
 
+                # if assistant_step zero, control Thymio by teleoperation
                 elif self.assistant_step == 0:
-                    # print("end timecheck" + str(self.assistant_step))
+                    # set angular velocity to 0
                     self._angular = 0
+                    # set forward velcity back to velocity before assistant took control
                     self._forward._min = self.prev_linear
+                    # set terminal message to message before assistant took control
                     self.message = self.prev_message
+                    # set assistant step to non zero
                     self.assistant_step = 1
-                    #self.sign = -1
             self.start = time.time()
-
-            # velocity = self.get_control(self._linear, self._angular)
 
             self._publish()
 
     def assistant_steer(self, output):
+        # if CNN output 1 bigger than CNN output 0
+        # think that there is a centered object or a pitfall
         if output[1] > abs(output[0]):
-            # print("Center")
-            print(output[0])
+            # if output 1 larger than threshold 0.3
+            # turn with angular velocity set to output 1 scaled by constant 2 in direction given by sign of output 0
+            # print(output[0])
             if abs(output[0]) > 0.3:
                 self.sign = - np.sign(output[0])
             self._angular = self.sign * output[1] * 2
-            #self._forward._min = self.prev_linear / abs(self._angular)
 
+         # if T value (CNN output 0) bigger or equal C value (CNN output 1)
         else:
+            # turn with angular velocity set to output 0
             self.sign = -1
             self._angular =  - output[0]
-            # if output[0] > 0:
-            # print("LEFT")
-            # else:
-            # print("RIGHT")
 
+    # as in standard teleoperation source code
     def run(self):
         self._linear = 0
         self._angular = 0
@@ -230,6 +250,7 @@ class KeyTeleop():
                 self._publish()
                 rate.sleep()
 
+    # as in standard teleoperation source code
     def _get_twist(self, linear, angular):
         twist = Twist()
         if linear >= 0:
@@ -239,6 +260,7 @@ class KeyTeleop():
         twist.angular.z = self._rotation(math.copysign(1, angular), abs(angular))
         return twist
 
+    # as in standard teleoperation source code
     def _key_pressed(self, keycode):
         movement_bindings = {
             curses.KEY_UP: (1, 0),
@@ -279,6 +301,7 @@ class KeyTeleop():
 
         return True
 
+    # publish as in standard teleoperation source code
     def _publish(self):
         self._interface.clear()
         self._interface.write_line(2, 'Linear: %d, Angular: %d' % (self._linear, self._angular))
@@ -297,7 +320,8 @@ class KeyTeleop():
 
         self.rate.sleep()
 
-
+# from standard teleoperation source code, not used in the assisted Thymio implementation
+# could be used if one wants to use simpled steering of the Thymio
 class SimpleKeyTeleop():
     FORWARD = 1
     ROTATING = 2
@@ -377,16 +401,16 @@ class SimpleKeyTeleop():
                 if np.max(output) > 0.1:
                     # Think that there is a centered object
                     if output[1] > abs(output[0]):
-                        print("Center")
+                        # print("Center")
                         # get best direction to go away from centered object
                         sign = - np.sign(output[0])
                         self._angular = sign * output[1]
                     else:
                         self._angular = - output[0]
-                        if output[0] > 0:
-                            print("LEFT")
-                        else:
-                            print("RIGHT")
+                        # if output[0] > 0:
+                        #     print("LEFT")
+                        # else:
+                        #     print("RIGHT")
 
             self.start = time.time()
 

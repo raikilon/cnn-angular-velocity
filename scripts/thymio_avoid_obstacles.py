@@ -26,11 +26,17 @@ import numpy as np
 class ThymioController:
     def __init__(self):
         """Initialization."""
+        # initialize linear speed
         self.speed = 0.2
+        # sign by default -1 (left)
         self.sign = -1
+        # initialize angular speed
         self.angular_speed = 0
+        #  store start time
         self.start = time.time()
+        # initialize CV bridge
         self.bridge = CvBridge()
+        # path to current directory
         self.path = os.path.dirname(os.path.abspath(__file__))
         # initialize the node
         rospy.init_node(
@@ -50,7 +56,7 @@ class ThymioController:
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
-
+        # get robot name from console
         self.name = rospy.get_param('~robot_name')
 
         # create velocity publisher
@@ -74,28 +80,37 @@ class ThymioController:
 
     def image_callback(self, msg):
         milsec = time.time() - self.start
-        # do inference every second
+        # do inference every 0.5 second
         if milsec > 0.5:
             # Convert your ROS Image message to OpenCV2
             cv2_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+            # convert color to RGB
             img = cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB)
+            # get image as PIL image
             im_pil = PILImage.fromarray(img)
+            # transform PIL image to prepare for CNN
             image = self.transform(im_pil)
             with torch.no_grad():
+                # get CNN output
                 output = self.model(image.unsqueeze_(0))
                 output = output.detach().cpu().numpy()[0]
 
                 # Think that there is a centered object or a pitfall
                 if output[1] > abs(output[0]):
+                    # if output 1 larger than threshold 0.3
+                    # turn with angular velocity set to output 1 scaled by constant 2 in direction given by sign of output 0
                     if abs(output[0]) > 0.3:
                         self.sign = - np.sign(output[0])
                     self.angular_speed = self.sign * output[1]
+                # if T value (CNN output 0) bigger or equal C value (CNN output 1)
                 else:
+                    # turn with angular velocity set to output 
                     self.sign = -1
                     self.angular_speed = - output[0]
 
             self.start = time.time()
 
+    # function to create Twist given linear and angular velocity
     def get_control(self, vel, ang):
         return Twist(
             linear=Vector3(
@@ -110,6 +125,7 @@ class ThymioController:
             )
         )
 
+    # to run the Thymio and publish its velocity
     def run(self):
         """Controls the Thymio."""
 
@@ -120,6 +136,7 @@ class ThymioController:
 
             self.rate.sleep()
 
+    # to stop the Thymio
     def stop(self):
         """Stops the robot."""
 
@@ -131,9 +148,11 @@ class ThymioController:
 
 
 if __name__ == '__main__':
+    # create controller
     controller = ThymioController()
 
     try:
+        # run controller
         controller.run()
     except rospy.ROSInterruptException as e:
         pass
